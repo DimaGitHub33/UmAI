@@ -21,7 +21,36 @@ import numpy as np
 ## ------------------------------------------------------------------------------------------------
 ## ----------------------------------------- Functions --------------------------------------------
 ## ------------------------------------------------------------------------------------------------
-## Ranks Dictionary -------------------------------------------------------
+## Ranks Dictionary ----------------------------------------------------------
+"""    
+Ranks Dictionary
+    Args:
+        temp_data:
+        Array of numerical data
+        ranks_num:
+        Number of ranks to split the temp_data
+
+    Returns:
+        pandas data frame that describe the boundaries of ranks for input data 
+        Example:
+        Dictionary = Ranks_Dictionary(np.random.normal(3, 2.5, size=(1, 1000)), ranks_num=10)
+        print(Dictionary)
+        quantile     value  lag_value  rank
+                0.1 -0.210117       -inf     1
+                0.2  0.748485  -0.210117     2
+                0.3  1.636300   0.748485     3
+                0.4  2.210183   1.636300     4
+                0.5  2.832312   2.210183     5
+                0.6  3.501649   2.832312     6
+                0.7  4.116645   3.501649     7
+                0.8  4.895207   4.116645     8
+                0.9  5.843564   4.895207     9
+                1.0       inf   5.843564    10
+
+        The output table help us to split any numerical array to array of ranks.
+        Each numerical value is between value and lag_value in this table. the rank in that specific row is the rank of the value.
+"""
+
 def Ranks_Dictionary(temp_data, ranks_num):
     quantile_seq = np.linspace(1 / ranks_num, 1, ranks_num)
     overall_quantile = list(map(lambda x: round(np.quantile(temp_data, x), 6), quantile_seq))
@@ -30,17 +59,36 @@ def Ranks_Dictionary(temp_data, ranks_num):
     overall_quantile['lag_value'] = overall_quantile['value'].shift(1)
     overall_quantile.loc[:, 'lag_value'] = overall_quantile['lag_value'].fillna(float('-inf'))
     overall_quantile.loc[:, 'value'][len(overall_quantile['value']) - 1] = float('inf')
-    overall_quantile['Rank'] = list(range(1, len(overall_quantile['value']) + 1))
-    overall_quantile = overall_quantile.loc[overall_quantile['value']!= overall_quantile['lag_value'], :]
+    overall_quantile['rank'] = list(range(1, len(overall_quantile['value']) + 1))
+    overall_quantile = overall_quantile.loc[overall_quantile['value'] != overall_quantile['lag_value'], :]
     return overall_quantile
 
-
 ## jitter ---------------------------------------------------------------------
-def RJitter(x,factor):
-    z = max(x)-min(x)
-    amount = factor * (z/50)
+"""    
+RJitter
+    Args:
+        x:
+        Array of numerical data
+        factor:
+        rate of jitter
+
+    Returns:
+        array of numerical data with almost the same data (the mean is the same the variance slightly grows, depend on the factor)
+        Example:
+        InputData=np.random.normal(0, 2.5, size=(1, 3))[0]
+        print(InputData)
+        [-1.58334198  0.64810107  0.37624609]
+        print(RJitter(x=InputData,factor=0.1))
+        [-1.58345746  0.64537898  0.37463414]
+
+        The function slightly add variance to the input data so that we can split it, if there are to many unique values.
+"""
+
+def RJitter(x, factor):
+    z = max(x) - min(x)
+    amount = factor * (z / 50)
     x = x + np.random.uniform(-amount, amount, len(x))
-    return(x)
+    return (x)
 
 ## Multiple Numeric YMC -------------------------------------------------------
 def MultipleNumericYMC(Variable, PercentHandicape, Suspicious, TimeDurationDays, NumberOfGroups):
@@ -106,20 +154,20 @@ def FourBasicNumericYMC(Variable, Target, NumberOfGroups):
     Variable = pd.DataFrame({'Variable': Variable, 
                              'Target': Target})
     IntervalLocation = Variable['Variable']
-    Variable['Rank'] = Dictionary.loc[IntervalLocation]['Rank'].reset_index(drop=True)
+    Variable['rank'] = Dictionary.loc[IntervalLocation]['rank'].reset_index(drop=True)
     del IntervalLocation
 
 
     # Aggregation Table
     AggregationTable = pd.DataFrame()
-    AggregationTable['Rank'] = Variable['Rank'].unique()
-    AggregationTable = AggregationTable.merge(Variable.groupby('Rank')['Target'].mean().reset_index().set_axis(['Rank', 'Mean'], axis=1), how='left', on=['Rank'])
-    AggregationTable = AggregationTable.merge(Variable.groupby('Rank')['Target'].median().reset_index().set_axis(['Rank', 'Median'], axis=1), how='left', on=['Rank'])
-    AggregationTable = AggregationTable.merge(Variable.groupby('Rank')['Target'].quantile(q=0.95).reset_index().set_axis(['Rank', 'Quantile'], axis=1), how='left', on=['Rank'])
-    AggregationTable = AggregationTable.merge(Variable.groupby('Rank')['Target'].apply(lambda x: len(x)).reset_index().set_axis(['Rank', 'NumberOfObserbation'], axis=1), how='left', on=['Rank'])
+    AggregationTable['rank'] = Variable['rank'].unique()
+    AggregationTable = AggregationTable.merge(Variable.groupby('rank')['Target'].mean().reset_index().set_axis(['rank', 'Mean'], axis=1), how='left', on=['rank'])
+    AggregationTable = AggregationTable.merge(Variable.groupby('rank')['Target'].median().reset_index().set_axis(['rank', 'Median'], axis=1), how='left', on=['rank'])
+    AggregationTable = AggregationTable.merge(Variable.groupby('rank')['Target'].quantile(q=0.95).reset_index().set_axis(['rank', 'Quantile'], axis=1), how='left', on=['rank'])
+    AggregationTable = AggregationTable.merge(Variable.groupby('rank')['Target'].apply(lambda x: len(x)).reset_index().set_axis(['rank', 'NumberOfObserbation'], axis=1), how='left', on=['rank'])
 
     # Merge to The Dictionary
-    Dictionary = Dictionary.merge(AggregationTable, how='left', on=['Rank'])
+    Dictionary = Dictionary.merge(AggregationTable, how='left', on=['rank'])
 
     Dictionary.loc[:, 'Mean'] = Dictionary['Mean'].fillna(np.mean(Variable['Target'].dropna()))
     Dictionary.loc[:, 'Median'] = Dictionary['Median'].fillna(np.median(Variable['Target'].dropna()))
@@ -146,11 +194,11 @@ def FunNumericYMC(Variable, Target, NumberOfGroups,Fun = np.mean,Name = "Mean"):
     Variable = pd.DataFrame({'Variable': Variable, 
                              'Target': Target})
     IntervalLocation = Variable['Variable']
-    Variable['Rank'] = Dictionary.loc[IntervalLocation]['Rank'].reset_index(drop=True)
+    Variable['rank'] = Dictionary.loc[IntervalLocation]['rank'].reset_index(drop=True)
     del IntervalLocation
 
     # Aggregation Table
-    Dictionary = Dictionary.merge(Variable.groupby('Rank')['Target'].apply(Fun).reset_index().set_axis(['Rank', Name], axis=1), how='left', on=['Rank'])
+    Dictionary = Dictionary.merge(Variable.groupby('rank')['Target'].apply(Fun).reset_index().set_axis(['rank', Name], axis=1), how='left', on=['rank'])
 
     #Fill NA with the Function outcomes on all the variable
     Dictionary.loc[:, Name] = Dictionary[Name].fillna(Fun(Variable['Target'].dropna()))

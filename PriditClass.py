@@ -1,6 +1,10 @@
 import pandas as pd
 import numpy as np
+import random as Random
+from warnings import simplefilter
 
+## Remove the warnings in the console --------------------------------------------
+simplefilter(action="ignore", category=pd.errors.PerformanceWarning)
 
 class PreditClassifier():
     def __init__(self, Data, conf):
@@ -127,7 +131,9 @@ class PreditClassifier():
     """
 
     def Pridit(self):
-
+        
+        Data = self.Data
+        
         ## Fill Configuration -----------------------------------------------------
         if (not 'UsingFacotr' in self.conf):
             self.conf['UsingFacotr'] = None
@@ -180,14 +186,14 @@ class PreditClassifier():
             del (factor_variables2)
 
         ## Fill the FactorVariables and NumericVariables list ----------------------
-        if factor_variables is None:
+        if factor_variables is None or len(factor_variables)==0:
             factor_variables = []
             data_types = Data.dtypes.reset_index().rename(columns={'index': 'Index', 0: 'Type'})
             for Index, row in data_types.iterrows():
                 if row['Type'] in ['object', 'str']:
                     factor_variables.append(row['Index'])
 
-        if numeric_variables is None:
+        if numeric_variables is None or len(numeric_variables)==0:
             numeric_variables = []
             data_types = Data.dtypes.reset_index().rename(columns={'index': 'Index', 0: 'Type'})
             for Index, row in data_types.iterrows():
@@ -352,49 +358,50 @@ class PreditClassifier():
 ## -------------------------- Run Pridit Score function ------------------------
 ## -----------------------------------------------------------------------------
 
-# Import libraries
-import pyarrow.parquet as pq
-from warnings import simplefilter
-import random as Random
+# # Import libraries
+# import pyarrow.parquet as pq
+# from warnings import simplefilter
+# import random as Random
 
-# Remove the warnings in the console
-simplefilter(action="ignore", category=pd.errors.PerformanceWarning)
+# # Remove the warnings in the console
+# simplefilter(action="ignore", category=pd.errors.PerformanceWarning)
 
-## Read Data from my local memory
-# Data = pd.read_parquet('/Users/dhhazanov/Downloads/ppp.parquet.gzip', engine='pyarrow')
-Data = pd.read_parquet('/Users/dhhazanov/Downloads/ppp_v1.parquet.gzip', engine='pyarrow')
-#Data = pd.read_parquet(r'C:\github\Utilities\machine_learning_examples\ppp_v1.parquet.gzip', engine='pyarrow')
-Data['HAVE_HAKIRA'] = Data['HAVE_HAKIRA'].fillna(-1)
+# ## Read Data from my local memory
+# # Data = pd.read_parquet('/Users/dhhazanov/Downloads/ppp.parquet.gzip', engine='pyarrow')
+# Data = pd.read_parquet('/Users/dhhazanov/Downloads/ppp_v1.parquet.gzip', engine='pyarrow')
+# #Data = pd.read_parquet(r'C:\github\Utilities\machine_learning_examples\ppp_v1.parquet.gzip', engine='pyarrow')
+# Data['HAVE_HAKIRA'] = Data['HAVE_HAKIRA'].fillna(-1)
 
-## Run the pridit Score without extra argument like FactorVariables,NumericVariables,FactorsVariablesOrder,NumericVariablesOrder
+# ## Run the pridit Score without extra argument like FactorVariables,NumericVariables,FactorsVariablesOrder,NumericVariablesOrder
 
-FactorVariables = ['GENDER', 'FAMILY_STATUS', 'ACADEMIC_DEGREE', 'PROFESSION', 'TEUR_ISUK', 'ISUK_MERAKEZ', 'TEUR_TACHBIV',
-                   'ADDRESS', 'STREET', 'CITY', 'TEUR_EZOR', 'MIKUD_BR', 'YESHUV_BR', 'TEUR_EZOR_MIKUD', 'TEUR_TAT_EZOR_MIKUD',
-                   'GEOCODE_TYPE', 'PHONES', 'CELLULARS', 'ASIRON_LAMAS', 'M_SOCHEN_MOCHER', 'SHEM_SOCHNUT_MOCHER', 'M_ERUAS']
-NumericVariables = ['TEOUDAT_ZEOUT', 'GIL', 'BR_FLG_YELED', 'CHILD_COUNT', 'ISUK', 'STATUS_ISUK', 'ZAVARON', 'TACHBIV', 'ISHUN',
-                    'SUG_VIP', 'CITY_ID', 'KOD_EZOR', 'ZIP_CODE', 'GEOCODEX', 'GEOCODEY', 'ESHKOL_PEREFIRIA', 'ESHKOL_LAMAS', 'REPORTEDSALARY',
-                    'VETEK', 'VETEK_PAIL', 'BR_FLG_POLISAT_KOLEKTIV', 'HAVE_BRIUT', 'BR_KAMUT_MUTZRIM_PEILIM', 'BR_FLG_CHOV', 'BR_SCHUM_CHOV']
+# FactorVariables = ['GENDER', 'FAMILY_STATUS', 'ACADEMIC_DEGREE', 'PROFESSION', 'TEUR_ISUK', 'ISUK_MERAKEZ', 'TEUR_TACHBIV',
+#                    'ADDRESS', 'STREET', 'CITY', 'TEUR_EZOR', 'MIKUD_BR', 'YESHUV_BR', 'TEUR_EZOR_MIKUD', 'TEUR_TAT_EZOR_MIKUD',
+#                    'GEOCODE_TYPE', 'PHONES', 'CELLULARS', 'ASIRON_LAMAS', 'M_SOCHEN_MOCHER', 'SHEM_SOCHNUT_MOCHER', 'M_ERUAS']
+# NumericVariables = ['TEOUDAT_ZEOUT', 'GIL', 'BR_FLG_YELED', 'CHILD_COUNT', 'ISUK', 'STATUS_ISUK', 'ZAVARON', 'TACHBIV', 'ISHUN',
+#                     'SUG_VIP', 'CITY_ID', 'KOD_EZOR', 'ZIP_CODE', 'GEOCODEX', 'GEOCODEY', 'ESHKOL_PEREFIRIA', 'ESHKOL_LAMAS', 'REPORTEDSALARY',
+#                     'VETEK', 'VETEK_PAIL', 'BR_FLG_POLISAT_KOLEKTIV', 'HAVE_BRIUT', 'BR_KAMUT_MUTZRIM_PEILIM', 'BR_FLG_CHOV', 'BR_SCHUM_CHOV']
 
-conf = {
-    'UsingFacotr': 'OnlyVariables',  ##Both, OnlyVariables, None
-    'FactorVariables': FactorVariables,  ##List, None
-    'NumericVariables': NumericVariables,  ##list, None
-    #'FactorVariables': [],  ##List, None
-    #'NumericVariables': [],  ##list, None
-    'FactorsVariablesOrder': None,  ##List, None
-    'NumericVariablesOrder': None  ##List, None
-}
+# conf = {
+#     'UsingFacotr': 'OnlyVariables',  ##Both, OnlyVariables, None
+#     'FactorVariables': FactorVariables,  ##List, None
+#     'NumericVariables': NumericVariables,  ##list, None
+#     #'FactorVariables': [],  ##List, None
+#     #'NumericVariables': [],  ##list, None
+#     'FactorsVariablesOrder': None,  ##List, None
+#     'NumericVariablesOrder': None  ##List, None
+# }
 
-preditClassifier = PreditClassifier(Data, conf)
-preditClassifier.gen_suprise_order()
-pridit_score = preditClassifier.Pridit()
-Data['pridit_score'] = pridit_score
-Data['pridit_score'].describe()
-print(pridit_score)
+# preditClassifier = PreditClassifier(Data, conf={})
+# preditClassifier.gen_suprise_order()
+# pridit_score = preditClassifier.Pridit()
+# Data['pridit_score'] = pridit_score
+# Data['pridit_score'].describe()
+# print(pridit_score)
 
-DataWithRank = preditClassifier.gen_rank(Data)
-print(preditClassifier.check_score_to_column('HAVE_HAKIRA'))
-print(preditClassifier.check_score_to_column('HAVE_TVIA'))
+# DataWithRank = preditClassifier.gen_rank(Data)
+# print(preditClassifier.check_score_to_column('HAVE_HAKIRA'))
+# print(preditClassifier.check_score_to_column('HAVE_TVIA')) 
+
 # print(preditClassifier.check_score_to_column('HAVE_HAKIRA'))
 ## Run the pridit Score without With extra argument like FactorVariables,NumericVariables,FactorsVariablesOrder,NumericVariablesOrder
 
