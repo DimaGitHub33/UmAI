@@ -26,8 +26,8 @@ Data['HAVE_HAKIRA'] = Data['HAVE_HAKIRA'].fillna(-1)
 ## PRIDIT SCORE ------------------------------------------------------------------------------------------------
 preditClassifier = PreditClassifier(Data,conf = {})
 #preditClassifier.gen_suprise_order()
-#pridit_score = preditClassifier.Pridit()
-Data['pridit_score'] = preditClassifier.Pridit()
+pridit_score = preditClassifier.Pridit()
+Data['pridit_score'] = pridit_score
 Data['pridit_score'].describe()
 
 ##Rank The Pridit Score
@@ -68,4 +68,17 @@ print(AggregationTable_HAVE_TVIA)
 #print(np.where(Data['pridit_score'] >= Data['pridit_score'].mean(),1,0))
 Data['Target'] = np.where(Data['pridit_score'] >= Data['pridit_score'].mean(),1,0)
 print(Data['Target'])
+
+Data.re
+Data.to_csv('Out.csv',index=False)
 #print(FunFactorYMC(VariableToConvert = 'HAVE_HAKIRA', TargetName = 'Target',Data = Data, FrequencyNumber = 100, Fun = np.median, Suffix='_Median_YMC' ))
+
+
+## Model -------------------------------------------------------------------------------------------------------
+Data['Target'] = np.where(Data['pridit_score'] >= Data['pridit_score'].mean(),1,0)
+from Model import Model
+conf={
+    'Path':'/Users/dhhazanov/UmAI/Models/Model.pckl'
+}
+Model(Data,conf)
+
