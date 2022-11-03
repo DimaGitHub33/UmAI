@@ -8,10 +8,10 @@ import lightgbm as LightGBM
 import numpy as np
 import pandas as pd
 
-from sklearn.model_selection import RandomizedSearchCV
+from sklearn.model_selection import RandomizedSearchCV, KFold
 
 from Functions import Ranks_Dictionary, RJitter, FunFactorYMC, FunNumericYMC
-
+pd.options.display.float_format = '{:.2f}'.format
 #from sklearn.linear_model import LogisticRegression
 #import lifelines
 #from lifelines.utils import k_fold_cross_validation
@@ -29,7 +29,6 @@ from Functions import Ranks_Dictionary, RJitter, FunFactorYMC, FunNumericYMC
 ## ------------------------------------------------------------------------------------------------
 ## ----------------------------------------- Model ------------------------------------------------
 ## ------------------------------------------------------------------------------------------------
-
 class Model():
     ## Ranks Dictionary ----------------------------------------------------------
     def __init__(self, Data, conf):
@@ -40,13 +39,48 @@ class Model():
         Data = self.Data
         conf = self.conf
 
-        ## Fill Configuration -----------------------------------------------------
+        ## Fill Configuration ------------------------------------------------------
         if (not 'factorVariables' in conf or conf['factorVariables'] == None):
             conf['factorVariables'] = []
             factorVariables = conf['factorVariables']
         if (not 'numericVariables' in conf or conf['numericVariables'] == None):
             conf['numericVariables'] = []
             numericVariables = conf['numericVariables']
+        if (not 'ColumnSelectionType' in conf or conf['ColumnSelectionType'] == None):
+            conf['ColumnSelectionType'] = []
+            conf['Keep'] = []
+            conf['Drop'] = []
+        if (conf['ColumnSelectionType'] != None and conf['Keep']==None):
+            conf['Keep'] = []
+        if (conf['ColumnSelectionType'] != None and conf['Drop']==None):
+            conf['Drop'] = []
+
+        ## Save Target columns -----------------------------------------------------
+        Target = Data[conf['Target']]
+        try:
+            Data = Data.drop(conf['Target'],axis=1)
+        except Exception:           
+            print("Target column is not exist")   
+
+        ## Drop ot Select columns from Data ----------------------------------------
+        if(len(conf['ColumnSelectionType'])!=0 and len(conf['Keep'])!=0):     
+            try:
+                Data = Data.loc[:,np.intersect1d(Data.columns.values,conf['Keep'])]
+                print('Selected chosen columns')
+            except Exception:           
+                print("Didn't selected anything")         
+                raise  
+        if(len(conf['ColumnSelectionType'])!=0 and len(conf['Drop'])!=0):
+            try:
+                Data = Data.drop(conf['Drop'],axis=1)
+                print('Droped selected columns')
+            except Exception:           
+                print("Didn't drop any columns")         
+                raise  
+
+        ## Insert Target columns -----------------------------------------------------
+        Data['Target'] = Target
+        del Target
 
         ## factorVariables and numericVariables Variables --------------------------
         factorVariables = conf['factorVariables']
@@ -81,13 +115,13 @@ class Model():
 
             # Inserting the dictionary into a list
             YMCFactorDictionaryList[variableToConvert] = Dictionary
-            
 
-        ### Delete all temporary Variables ----------------------------------------
-        del variableToConvert
-        del meanDictionary
-        del medianDictionary
-        del Dictionary
+            ### Delete all temporary Variables ----------------------------------------
+            del variableToConvert
+            del meanDictionary
+            del medianDictionary
+            del Dictionary
+        
             
         ### Inserting the Total YMC Measures for all the new predictions ----------
         totalYMeanTarget = np.mean(Data['Target'])   
@@ -107,10 +141,11 @@ class Model():
             Data.loc[:, variableName+"_MeanFactorYMC"] = Data[variableName+"_MeanFactorYMC"].fillna(totalYMeanTarget)        
             Data.loc[:, variableName+"_MedianFactorYMC"] = Data[variableName+"_MedianFactorYMC"].fillna(totalYMedianTarget)
         
-        ### Delete all temporary Variables ----------------------------------------
-        del YMCDictionary
-        del variableName 
-            
+            ### Delete all temporary Variables ----------------------------------------       
+            del YMCDictionary
+            del variableName 
+
+
         ### Numerical Data Manipulation (YMC) -------------------------------------
         YMCDictionaryNumericList = dict()
         for variableToConvert in numericVariables:
@@ -119,9 +154,9 @@ class Model():
 
             YMCDictionaryNumericList[variableToConvert] = FunNumericYMC(Variable = Variable,Target = Data['Target'],NumberOfGroups = 10,Fun = np.mean,Name = "MeanNumericYMC")
         
-        ### Delete all temporary Variables ----------------------------------------
-        del Variable
-        del variableToConvert
+            ### Delete all temporary Variables ----------------------------------------
+            del Variable
+            del variableToConvert
 
         ### Creating the YMC calculation for each numeric variable ----------------
         numericYMC = pd.DataFrame(data={})
@@ -146,18 +181,20 @@ class Model():
             numericYMC = pd.concat([numericYMC, YMC], axis=1)
             numericYMC.columns = list(map(lambda x: x.replace('variableToConvert', variableToConvert, 1), numericYMC.columns))
         
+            ### Delete all temporary Variables ----------------------------------------
+            del variableToConvert
+            del Variable
+            del VariableDictionary
+            del V
+            del YMC
+
         ### Left join of Numeric_YMC table to the DataPanel -----------------------
         #Data = Data.join(Numeric_YMC.set_index('ClaimNo_Descision'), how='left', on='ClaimNo_Descision')
         Data = pd.concat([Data,numericYMC], axis = 1)
         
         ### Delete all temporary Variables ----------------------------------------
-        del variableToConvert
         del numericYMC 
-        del Variable
-        del VariableDictionary
-        del V
-        del YMC
-        
+
         
         ### -----------------------------------------------------------------------
         ### ----------------------- Target Model ----------------------------------
@@ -176,30 +213,40 @@ class Model():
         YTrain = YTrain.loc[~np.isnan(YTrain)].reset_index(drop=True)
 
         ### Defining the model ------------------------------------------------
-        LGBEstimator = LightGBM.LGBMRegressor(boosting_type='gbdt',
-                                                objective='regression')
+        LGBEstimator = LightGBM.LGBMRegressor(boosting_type = 'gbdt',
+                                              objective = 'regression')
         
         ### Defining the Grid -------------------------------------------------
         parameters = {'num_leaves':[20,40,60,80,100], 
-                        #'C': [0, 0.3, 0.5, 1],
-                        'n_estimators': [50,100,150,200,300],
-                        'min_child_samples':[5,10,15],
-                        'max_depth':[-1,5,10,20,30,40,45],
-                        'learning_rate':[0.05,0.1,0.2],
-                        'reg_alpha':[0,0.01,0.03]}
+                      #'panalty': ['l1','l2'],
+                      #'C': [0, 0.3, 0.5, 1],
+                      'n_estimators': [50,100,150,200,300],
+                      'min_child_samples':[5,10,15],
+                      'max_depth':[-1,5,10,20,30,40,45],
+                      'learning_rate':[0.05,0.1,0.2],
+                      'reg_alpha':[0,0.01,0.03]}
+
+        ## K-Fold Cross-Valisdation -------------------------------------------
+        KF = KFold(n_splits = 5, shuffle = True, random_state=4)
 
         ### Run the model -----------------------------------------------------
         GBMGridSearch = RandomizedSearchCV(estimator = LGBEstimator,
                                                 param_distributions = parameters,
                                                 scoring='neg_mean_absolute_error',#'accuracy',,‘neg_mean_absolute_error’,'neg_root_mean_squared_error
                                                 n_iter=30,
-                                                cv = 4,
-                                                n_jobs = 4)
+                                                n_jobs = 4,
+                                                cv = KF, #k-fold number
+                                                refit = True
+                                                )
         GBMModel = GBMGridSearch.fit(X=XTrain, y=YTrain)   
         
         ### Fitting the best model --------------------------------------------
         GBMModel = GBMModel.best_estimator_.fit(X=XTrain, y=YTrain)
-            
+        # GBMModel.best_params_
+        # results = pd.DataFrame(GBMModel.cv_results_)[['params','mean_test_score','std_test_score']]
+        # results.sort_values(by="mean_test_score",ascending=False,inplace=True)
+        # results.reset_index(drop=False,inplace=True)
+        # results['mean_test_score'].plot(yerr=[results['std_test_score'], results['std_test_score']],subplots=True)
         ### Saving the features name ------------------------------------------
         GBMModel.feature_names = list(YMCVariables)
         
@@ -209,6 +256,7 @@ class Model():
         del XTrain
         del YTrain
         del GBMGridSearch
+        del KF
 
         ### Current Time ----------------------------------------------------------
         now = datetime.now() 
@@ -230,6 +278,21 @@ class Model():
 
         f.close()
 
+        ### -----------------------------------------------------------------------
+        ### ----------------------- Prediction Model ------------------------------
+        ### -----------------------------------------------------------------------
+        ### Taking the YMC_Suspicious variables -----------------------------------
+
+        XTest = Data.loc[:,GBMModel.feature_names].astype(float)
+        Data['predictGBM'] = GBMModel.predict(XTest)
+        Data['predictGBM'] = Data['predictGBM'].astype(float)
+
+        ### Output ----------------------------------------------------------------
+        Output = pd.DataFrame(data={'Target': Data['Target'],
+                                    'predictGBM': Data['predictGBM']})
+
+        return Output
+
 
 # ## Check The Model --------------------------------------------------------  
 # Data = pd.read_parquet('/Users/dhhazanov/Downloads/ppp_v1.parquet.gzip', engine='pyarrow')
@@ -238,10 +301,12 @@ class Model():
 # conf={
 #     'Path':'/Users/dhhazanov/UmAI/Models/Model.pckl',
 #     'Target':'Target2',
-#     'ColumnSelection':None,#Drop,Keep
-#     'keep': None,
-#     'Drop': None,
+#     'ColumnSelectionType': 'Drop',#Drop,Keep
+#     'Keep': None,#['GENDER', 'FAMILY_STATUS','GIL'],
+#     'Drop': ['GIL','ISUK_MERAKEZ','FAMILY_STATUS','ISHUN','M_CHOD_TASHLOM_BR'],#None,
 #     'ModelType': None #GBM,Linear regression,...
 # }
 # RunModel = Model(Data,conf)
-# RunModel.fit()
+# Output = RunModel.fit()
+
+# Output.groupby('Target')['predictGBM'].apply(np.mean).reset_index()
