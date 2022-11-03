@@ -233,9 +233,15 @@ class Model():
 
 # ## Check The Model --------------------------------------------------------  
 # Data = pd.read_parquet('/Users/dhhazanov/Downloads/ppp_v1.parquet.gzip', engine='pyarrow')
-# Data['Target'] = np.where(Data['GIL'] >= Data['GIL'].mean(),1,0)
+# #Data['Target'] = np.where(Data['GIL'] >= Data['GIL'].mean(),1,0)
+# Data['Target2'] = np.where(Data['GIL'] >= Data['GIL'].mean(),1,0)
 # conf={
-#     'Path':'/Users/dhhazanov/UmAI/Models/Model.pckl'
+#     'Path':'/Users/dhhazanov/UmAI/Models/Model.pckl',
+#     'Target':'Target2',
+#     'ColumnSelection':None,#Drop,Keep
+#     'keep': None,
+#     'Drop': None,
+#     'ModelType': None #GBM,Linear regression,...
 # }
 # RunModel = Model(Data,conf)
 # RunModel.fit()

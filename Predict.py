@@ -130,7 +130,7 @@ class Predict():
         return Output
 
 
-# Check The Model --------------------------------------------------------  
+#Check The Model --------------------------------------------------------  
 # Data = pd.read_parquet('/Users/dhhazanov/Downloads/ppp_v1.parquet.gzip', engine='pyarrow')
 # conf={
 #     'Path':'/Users/dhhazanov/UmAI/Models/Model.pckl'

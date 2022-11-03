@@ -277,22 +277,23 @@ matBvectC <- function(t){
   
 
   
-
-  Fullcov = read.csv("x3.csv",header=TRUE)
-  ridit.calc(Fullcov)
-  (F)
-  (Winf <- iteracions(Fullcov))
-  (Compr_PCA <- CompPrinc(Fullcov))
-  vectC <- matBvectC(Fullcov)
-  cat("\nVector C\n"); print(vectC)
-  yhat=(as.matrix(F))%*%as.matrix(Winf)
-  yobs = read.csv("Fullcoverage.csv",header=TRUE)
-  all=data.frame(yhat, yobs)
-  r=subset.data.frame(all, y==0)
-  r1=subset.data.frame(all, y==1)
-  hist(r$as.matrix.F......W0)
-  hist(r1$as.matrix.F......W0)
-  vectC*1000
+getwd()
+setwd("UmAI/")
+Fullcov = read.csv("x3.csv",header=TRUE)
+ridit.calc(Fullcov)
+(F)
+(Winf <- iteracions(Fullcov))
+(Compr_PCA <- CompPrinc(Fullcov))
+vectC <- matBvectC(Fullcov)
+cat("\nVector C\n"); print(vectC)
+yhat=(as.matrix(F))%*%as.matrix(Winf)
+yobs = read.csv("Fullcoverage.csv",header=TRUE)
+all=data.frame(yhat, yobs)
+r=subset.data.frame(all, y==0)
+r1=subset.data.frame(all, y==1)
+hist(r$as.matrix.F......W0)
+hist(r1$as.matrix.F......W0)
+vectC*1000
  
   
   
