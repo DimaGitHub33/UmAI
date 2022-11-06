@@ -261,6 +261,7 @@ matBvectC <- function(t){
   (Compr_PCA <- CompPrinc(x1))
   vectC <- matBvectC(x1)
   cat("\nVector C\n"); print(vectC)
+  t=x1
   
   
   
