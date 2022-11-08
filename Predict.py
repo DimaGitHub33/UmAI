@@ -56,6 +56,8 @@ class Predict():
          totalYMedianTarget,
          YMCDictionaryNumericList,
          GBMModel,
+         maxY,
+         minY,
          CreateModelDate] = obj
        
         del f, Path, obj   
@@ -128,6 +130,8 @@ class Predict():
         XTest = Data.loc[:,GBMModel.feature_names].astype(float)
         Data['predictGBM'] = GBMModel.predict(XTest)
         Data['predictGBM'] = Data['predictGBM'].astype(float)
+        Data['predictGBM'] = np.where(Data['predictGBM']>=maxY,maxY,Data['predictGBM'])
+        Data['predictGBM'] = np.where(Data['predictGBM']<=minY,minY,Data['predictGBM'])
 
 
         ### Variable Explainer - ----------------------------------
@@ -180,7 +184,7 @@ class Predict():
         return Output
 
 
-##Check The Model --------------------------------------------------------  
+#Check The Model --------------------------------------------------------  
 # Data = pd.read_parquet('/Users/dhhazanov/Downloads/ppp_v1.parquet.gzip', engine='pyarrow')
 # conf={
 #     'Path':'/Users/dhhazanov/UmAI/Models/Model.pckl'

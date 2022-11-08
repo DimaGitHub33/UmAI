@@ -6,7 +6,7 @@ if __name__ == "__main__":
 import pandas as pd
 import numpy as np
 import pyarrow.parquet as pq
-from PriditClass import PreditClassifier
+from Pridit import preditClassifier
 from Functions import Ranks_Dictionary, RJitter, FunFactorYMC, FunNumericYMC
 
 #from warnings import simplefilter
@@ -24,10 +24,10 @@ Data['HAVE_HAKIRA'] = Data['HAVE_HAKIRA'].fillna(-1)
 
 
 ## PRIDIT SCORE ------------------------------------------------------------------------------------------------
-preditClassifier = PreditClassifier(Data,conf = {})
+preditClassifier = PriditClassifier(Data,conf = {})
 #preditClassifier.gen_suprise_order()
-pridit_score = preditClassifier.Pridit()
-Data['pridit_score'] = pridit_score
+priditScore,F,firstEigenVector = preditClassifier.Pridit()
+Data['pridit_score'] = priditScore
 Data['pridit_score'].describe()
 
 ##Rank The Pridit Score
@@ -82,7 +82,100 @@ conf={
 }
 Model(Data,conf)
 
+## Model -------------------------------------------------------------------------------------------------------
+from sklearn.datasets import load_breast_cancer
+from Pridit import PriditClassifier
+breast_cancer_x,breast_cancer_y = load_breast_cancer(return_X_y=True)
+
+
+
+# conf = {
+#     'UsingFacotr': 'OnlyVariables',  ##Both, OnlyVariables, None
+#     'FactorVariables': FactorVariables,  ##List, None
+#     'NumericVariables': NumericVariables,  ##list, None
+#     #'FactorVariables': [],  ##List, None
+#     #'NumericVariables': [],  ##list, None
+#     'FactorsVariablesOrder': None,  ##List, None
+#     'NumericVariablesOrder': None  ##List, None
+# }
+
+PC = PriditClassifier(pd.DataFrame(breast_cancer_x), conf={})
+#preditClassifier = PreditClassifier(Data, conf=conf)
+priditScore,F,firstEigenVector  = PC.Pridit()
+
+Data = pd.concat([pd.DataFrame(breast_cancer_x),pd.DataFrame({'Y':breast_cancer_y})],axis=1)
+Data['priditScore'] = priditScore
+Data['priditScore'].describe()
+
+
+##Rank The Pridit Score
+Dictionary = Ranks_Dictionary(RJitter(x = Data['priditScore'], factor = 0.00001), ranks_num=10)
+Dictionary.index = pd.IntervalIndex.from_arrays(Dictionary['lag_value'],Dictionary['value'],closed='left')
+
+# Convert Each value in variable to ranktype(FactorVariables)
+Data['Rank'] = Dictionary.loc[Data['priditScore']]['rank'].reset_index(drop=True)
+Data['Rank'] = np.where(Data['priditScore']<=0,-1,1)
+
+
+## Estimation function for mean, median and sum
+def aggregations(x):
+    Mean = np.mean(x)
+    Median = np.median(x)
+    Sum = np.sum(x)
+    NumberOfObservation = len(x)
+    DataReturned = pd.DataFrame({'Mean': [Mean],'Median': [Median],'Sum': [Sum],'NumberOfObservation': [NumberOfObservation]})
+    return DataReturned
+
+## Aggregation HAVE_HAKIRA
+AggregationTable_priditScore = Data.groupby('Rank')['priditScore'].apply(aggregations).reset_index()
+AggregationTable_priditScore = AggregationTable_priditScore.drop(columns=['level_1'])
+print(AggregationTable_priditScore)
+
+AggregationTable_Y = Data.groupby('Rank')['Y'].apply(aggregations).reset_index()
+AggregationTable_Y= AggregationTable_Y.drop(columns=['level_1'])
+print(AggregationTable_Y)
+
+100*np.mean(breast_cancer_y)
 
 
 
 
+
+
+from sklearn.datasets import make_classification
+make_classification_x,make_classification_y = make_classification(n_samples=10000)
+
+
+
+PC = PriditClassifier(pd.DataFrame(make_classification_x), conf={})
+#preditClassifier = PreditClassifier(Data, conf=conf)
+priditScore,F,firstEigenVector  = PC.Pridit()
+
+Data = pd.concat([pd.DataFrame(make_classification_x),pd.DataFrame({'Y':make_classification_y})],axis=1)
+Data['priditScore'] = priditScore
+Data['priditScore'].describe()
+
+
+##Rank The Pridit Score
+Dictionary = Ranks_Dictionary(RJitter(x = Data['priditScore'], factor = 0.00001), ranks_num=10)
+Dictionary.index = pd.IntervalIndex.from_arrays(Dictionary['lag_value'],Dictionary['value'],closed='left')
+
+# Convert Each value in variable to ranktype(FactorVariables)
+Data['Rank'] = Dictionary.loc[Data['priditScore']]['rank'].reset_index(drop=True)
+Data['Rank'] = np.where(Data['priditScore']<=0,-1,1)
+
+## Estimation function for mean, median and sum
+def aggregations(x):
+    Mean = np.mean(x)
+    Median = np.median(x)
+    Sum = np.sum(x)
+    NumberOfObservation = len(x)
+    DataReturned = pd.DataFrame({'Mean': [Mean],'Median': [Median],'Sum': [Sum],'NumberOfObservation': [NumberOfObservation]})
+    return DataReturned
+
+
+AggregationTable_Y = Data.groupby('Rank')['Y'].apply(aggregations).reset_index()
+AggregationTable_Y= AggregationTable_Y.drop(columns=['level_1'])
+print(AggregationTable_Y)
+
+100*np.mean(make_classification_y)

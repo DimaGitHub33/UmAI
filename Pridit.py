@@ -8,7 +8,7 @@ from Functions import Ranks_Dictionary, RJitter, FunFactorYMC, FunNumericYMC
 ## Remove the warnings in the console --------------------------------------------
 simplefilter(action="ignore", category=pd.errors.PerformanceWarning)
 
-class PreditClassifier():
+class PriditClassifier():
     def __init__(self, Data, conf):
         self.Data = Data
         self.conf = conf
@@ -64,34 +64,34 @@ class PreditClassifier():
     """
 
     def Pridit(self):
-        
+        conf = self.conf
         Data = self.Data
         
         ## Fill Configuration -----------------------------------------------------
-        if (not 'UsingFacotr' in self.conf):
-            self.conf['UsingFacotr'] = None
-        if (not 'FactorVariables' in self.conf or self.conf['FactorVariables'] == None):
-            self.conf['FactorVariables'] = []
-            factorVariables = self.conf['FactorVariables']
-        if (not 'NumericVariables' in self.conf or self.conf['NumericVariables'] == None):
-            self.conf['NumericVariables'] = []
-            numericVariables = self.conf['NumericVariables']
-        if (not 'FactorsVariablesOrder' in self.conf):
-            self.conf['FactorsVariablesOrder'] = None
-        if (not 'NumericVariablesOrder' in self.conf):
-            self.conf['NumericVariablesOrder'] = None
-        if (not 'UsingFacotr' in self.conf):
-            self.conf['NumericVariablesOrder'] = None
+        if (not 'UsingFacotr' in conf):
+            conf['UsingFacotr'] = None
+        if (not 'FactorVariables' in conf or conf['FactorVariables'] == None):
+            conf['FactorVariables'] = []
+            factorVariables = conf['FactorVariables']
+        if (not 'NumericVariables' in conf or conf['NumericVariables'] == None):
+            conf['NumericVariables'] = []
+            numericVariables = conf['NumericVariables']
+        if (not 'FactorsVariablesOrder' in conf):
+            conf['FactorsVariablesOrder'] = None
+        if (not 'NumericVariablesOrder' in conf):
+            conf['NumericVariablesOrder'] = None
+        if (not 'UsingFacotr' in conf):
+            conf['NumericVariablesOrder'] = None
 
-        if (self.conf['UsingFacotr'] == 'OnlyVariables'):
-            factorVariables = self.conf['FactorVariables']
-            numericVariables = self.conf['NumericVariables']
+        if (conf['UsingFacotr'] == 'OnlyVariables'):
+            factorVariables = conf['FactorVariables']
+            numericVariables = conf['NumericVariables']
 
         ## Fill the FactorVariables and NumericVariables list for other columns in the input data ----
-        if (self.conf['UsingFacotr'] == 'Both'):
+        if (conf['UsingFacotr'] == 'Both'):
 
-            factorVariables = self.conf['FactorVariables']
-            numericVariables = self.conf['NumericVariables']
+            factorVariables = conf['FactorVariables']
+            numericVariables = conf['NumericVariables']
 
             factorVariables2 = []
             dataTypes = Data.dtypes.reset_index().rename(columns={'index': 'Index', 0: 'Type'})
@@ -134,8 +134,8 @@ class PreditClassifier():
                     numericVariables.append(row['Index'])
 
         ## Fill the orders of the variables
-        factors_variables_order = self.conf['FactorsVariablesOrder']
-        numericVariables_order = self.conf['NumericVariablesOrder']
+        factorsVariablesOrder = conf['FactorsVariablesOrder']
+        numericVariablesOrder = conf['NumericVariablesOrder']
 
         ## F calculation for Factor variables  ------------------------------------
         F = pd.DataFrame()
@@ -153,10 +153,10 @@ class PreditClassifier():
             frequencyTable.columns = [variableToConvert, 'Frequency']
 
             ## Order the Factors by the FactorsVariablesOrder
-            if factors_variables_order is None:
+            if factorsVariablesOrder is None:
                 frequencyTable = frequencyTable.sort_values('Frequency', ascending=True)
             else:
-                Order = factors_variables_order[factors_variables_order['Variable'] == variableToConvert].set_index('Level')
+                Order = factorsVariablesOrder[factorsVariablesOrder['Variable'] == variableToConvert].set_index('Level')
                 if len(Order) == 0:
                     frequencyTable = frequencyTable.sort_values('Frequency', ascending=True)
                 else:
@@ -200,12 +200,12 @@ class PreditClassifier():
             frequencyTable['Rank'] = frequencyTable['Rank'].astype(float)
 
             ## Order the Factors by the NumericVariablesOrder
-            if factors_variables_order is None:
-                frequencyTable = frequencyTable.sort_values('Frequency', ascending=True)
+            if numericVariablesOrder is None:
+                frequencyTable = frequencyTable.sort_values('Rank', ascending=True)
             else:
-                Order = numericVariables_order[numericVariables_order['Variable'] == variableToConvert]
+                Order = numericVariablesOrder[numericVariablesOrder['Variable'] == variableToConvert]
                 if len(Order) == 0:
-                    frequencyTable = frequencyTable.sort_values('Frequency', ascending=True)
+                    frequencyTable = frequencyTable.sort_values('Rank', ascending=True)
                 else:
                     if Order['Order'][0] == 0:
                         frequencyTable = frequencyTable.sort_values('Rank', ascending=False)
@@ -216,12 +216,12 @@ class PreditClassifier():
             frequencyTable['CumSum'] = frequencyTable['Frequency'].cumsum().copy()
             frequencyTable['F'] = frequencyTable['CumSum'] - frequencyTable['Frequency'] - (1 - frequencyTable['CumSum'])
             frequencyTable = frequencyTable[['Rank', 'F']]
-            frequencyTable.columns = ['Rank', 'FTransformation_' + variableToConvert]
+            frequencyTable.columns = ['Rank', 'FTransformation_' + str(variableToConvert)]
             frequencyTable['Rank'] = frequencyTable['Rank'].astype(int).astype(str)
 
             # Merge to The Table
             variable = variable.join(frequencyTable.set_index('Rank'), on='Rank', how='left')
-            F['FTransformation_' + variableToConvert] = variable['FTransformation_' + variableToConvert]
+            F['FTransformation_' + str(variableToConvert)] = variable['FTransformation_' + str(variableToConvert)]
 
         ## Calculating the Eigenvector of the maximum eigenvalues-------------------
         FMat = F.to_numpy()
@@ -298,9 +298,9 @@ class PreditClassifier():
 #     'NumericVariablesOrder': None  ##List, None
 # }
 
-# preditClassifier = PreditClassifier(Data, conf={})
-# #preditClassifier = PreditClassifier(Data, conf=conf)
-# priditScore,F,firstEigenVector  = preditClassifier.Pridit()
+# PriditClassifier = PriditClassifier(Data, conf={})
+# #PriditClassifier = PriditClassifier(Data, conf=conf)
+# priditScore,F,firstEigenVector  = PriditClassifier.Pridit()
 # Data['priditScore'] = priditScore
 # Data['priditScore'].describe()
 # print(priditScore)
@@ -369,5 +369,5 @@ class PreditClassifier():
     #'FactorsVariablesOrder': None,  ##List, None
     #'NumericVariablesOrder': None  ##List, None
 #}
-#preditClassifier = PreditClassifier(Data, conf={})
-#priditScore,F,firstEigenVector = preditClassifier.Pridit()
+#PriditClassifier = PriditClassifier(Data, conf={})
+#priditScore,F,firstEigenVector = PriditClassifier.Pridit()

@@ -7,11 +7,12 @@ from docutils import DataError
 import lightgbm as LightGBM
 import numpy as np
 import pandas as pd
-
+from scipy import stats
 from sklearn.model_selection import RandomizedSearchCV, KFold
 
 from Functions import Ranks_Dictionary, RJitter, FunFactorYMC, FunNumericYMC
 pd.options.display.float_format = '{:.2f}'.format
+import warnings
 #from sklearn.linear_model import LogisticRegression
 #import lifelines
 #from lifelines.utils import k_fold_cross_validation
@@ -213,36 +214,48 @@ class Model():
         YTrain = YTrain.loc[~np.isnan(YTrain)].reset_index(drop=True)
 
         ### Defining the model ------------------------------------------------
+        # objective = 'multiclass'
         LGBEstimator = LightGBM.LGBMRegressor(boosting_type = 'gbdt',
                                               objective = 'regression')
         
         ### Defining the Grid -------------------------------------------------
-        parameters = {'num_leaves':[20,40,60,80,100], 
-                      #'panalty': ['l1','l2'],
-                      #'C': [0, 0.3, 0.5, 1],
-                      'n_estimators': [50,100,150,200,300],
-                      'min_child_samples':[5,10,15],
-                      'max_depth':[-1,5,10,20,30,40,45],
-                      'learning_rate':[0.05,0.1,0.2],
-                      'reg_alpha':[0,0.01,0.03]}
+        # parameters = {'num_leaves':[20,40,60,80,100], 
+        #               #'panalty': ['l1','l2'],
+        #               #'C': [0, 0.3, 0.5, 1],
+        #               'n_estimators': [50,100,150,200,300],
+        #               'min_child_samples':[5,10,15],
+        #               'max_depth':[-1,5,10,20,30,40,45],
+        #               'learning_rate':[0.05,0.1,0.2],
+        #               'reg_alpha':[0,0.01,0.03]}
+        parameters = dict(num_leaves = stats.randint(10,500),
+                          #panalty = ('l1','l2'),
+                          #C = stats.uniform(0, 1),
+                          n_estimators = stats.randint(10,400),
+                          min_child_samples = stats.randint(0,20),
+                          max_depth = stats.randint(1,15),
+                          learning_rate = stats.uniform(0,1),
+                          reg_alpha = stats.uniform(0,1))
 
         ## K-Fold Cross-Valisdation -------------------------------------------
         KF = KFold(n_splits = 5, shuffle = True, random_state=4)
 
         ### Run the model -----------------------------------------------------
         GBMGridSearch = RandomizedSearchCV(estimator = LGBEstimator,
-                                                param_distributions = parameters,
-                                                scoring='neg_mean_absolute_error',#'accuracy',,‘neg_mean_absolute_error’,'neg_root_mean_squared_error
-                                                n_iter=30,
-                                                n_jobs = 4,
-                                                cv = KF, #k-fold number
-                                                refit = True
-                                                )
-        GBMModel = GBMGridSearch.fit(X=XTrain, y=YTrain)   
-        
+                                            param_distributions = parameters,
+                                            scoring='neg_mean_absolute_error',#'accuracy',,‘neg_mean_absolute_error’,'neg_root_mean_squared_error
+                                            n_iter = 60,
+                                            n_jobs = 4,
+                                            cv = KF, #k-fold number
+                                            refit = True,
+                                            random_state = 4
+                                            )
+                                 
+        GBMModel = GBMGridSearch.fit(X=XTrain, y=YTrain)
+
+             
         ### Fitting the best model --------------------------------------------
         GBMModel = GBMModel.best_estimator_.fit(X=XTrain, y=YTrain)
-        # GBMModel.best_params_
+        # GBMModel.best_params_ #{'learning_rate': 0.06838596828617904, 'max_depth': 14, 'min_child_samples': 0, 'n_estimators': 195, 'num_leaves': 310, 'reg_alpha': 0.30033842756085605}
         # results = pd.DataFrame(GBMModel.cv_results_)[['params','mean_test_score','std_test_score']]
         # results.sort_values(by="mean_test_score",ascending=False,inplace=True)
         # results.reset_index(drop=False,inplace=True)
@@ -250,6 +263,11 @@ class Model():
         ### Saving the features name ------------------------------------------
         GBMModel.feature_names = list(YMCVariables)
         
+        ## Maximum and Minimum Y ----------------------------------------------
+        maxY = np.max(YTrain)
+        minY = np.min(YTrain)
+
+        ## Delete variables ---------------------------------------------------
         del YMCVariables
         del parameters
         del LGBEstimator
@@ -258,11 +276,11 @@ class Model():
         del GBMGridSearch
         del KF
 
-        ### Current Time ----------------------------------------------------------
+        ### Current Time -------------------------------------------------------
         now = datetime.now() 
         CreateModelDate = now.strftime("%Y-%m-%d %H:%M:%S")
 
-        ### Save The Model --------------------------------------------------------  
+        ### Save The Model ----------------------------------------------------- 
         Path = conf['Path']
         #os.getcwd()
         #Path = Path.replace('Segment', Segment, 1)  
@@ -274,6 +292,8 @@ class Model():
                     totalYMedianTarget,
                     YMCDictionaryNumericList,
                     GBMModel,
+                    maxY,
+                    minY,
                     CreateModelDate], f)
 
         f.close()
@@ -286,6 +306,8 @@ class Model():
         XTest = Data.loc[:,GBMModel.feature_names].astype(float)
         Data['predictGBM'] = GBMModel.predict(XTest)
         Data['predictGBM'] = Data['predictGBM'].astype(float)
+        Data['predictGBM'] = np.where(Data['predictGBM']>=maxY,maxY,Data['predictGBM'])
+        Data['predictGBM'] = np.where(Data['predictGBM']<=minY,minY,Data['predictGBM'])
 
         ### Output ----------------------------------------------------------------
         Output = pd.DataFrame(data={'Target': Data['Target'],
@@ -294,8 +316,9 @@ class Model():
         return Output
 
 
-# ## Check The Model --------------------------------------------------------  
+#Check The Model --------------------------------------------------------  
 # Data = pd.read_parquet('/Users/dhhazanov/Downloads/ppp_v1.parquet.gzip', engine='pyarrow')
+
 # #Data['Target'] = np.where(Data['GIL'] >= Data['GIL'].mean(),1,0)
 # Data['Target2'] = np.where(Data['GIL'] >= Data['GIL'].mean(),1,0)
 # conf={
