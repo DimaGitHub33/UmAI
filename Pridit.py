@@ -225,7 +225,7 @@ class PriditClassifier():
 
         ## Calculating the Eigenvector of the maximum eigenvalues-------------------
         FMat = F.to_numpy()
-        FTF = np.matmul(FMat.T, FMat)
+        FTF = np.matmul(FMat.T, FMat)##This is the covariance matrix
         eigenvalues, eigenvectors = np.linalg.eigh(FTF)
         firstEigenVector = eigenvectors[:, np.argmax(eigenvalues)]
         priditScore = FMat.dot(firstEigenVector)
