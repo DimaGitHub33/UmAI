@@ -42,6 +42,9 @@ class Predict():
         Data = self.Data
         conf = self.conf
 
+        ## convert columns names to string -----------------------------------------
+        Data.columns = Data.columns.astype(str)
+        
         ### Load The Models ------------------------------------------------------- 
         Path = conf['Path']  
         #Path = Path.replace('Segment', Segment, 1)

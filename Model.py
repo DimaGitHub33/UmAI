@@ -31,7 +31,7 @@ import warnings
 ## ----------------------------------------- Model ------------------------------------------------
 ## ------------------------------------------------------------------------------------------------
 class Model():
-    ## Ranks Dictionary ----------------------------------------------------------
+    ## Ranks Dictionary -----------------------------------------------------------
     def __init__(self, Data, conf):
         self.Data = Data
         self.conf = conf
@@ -39,6 +39,9 @@ class Model():
     def fit(self):
         Data = self.Data
         conf = self.conf
+
+        ## convert columns names to string -----------------------------------------
+        Data.columns = Data.columns.astype(str)
 
         ## Fill Configuration ------------------------------------------------------
         if (not 'factorVariables' in conf or conf['factorVariables'] == None):
@@ -243,7 +246,7 @@ class Model():
         GBMGridSearch = RandomizedSearchCV(estimator = LGBEstimator,
                                             param_distributions = parameters,
                                             scoring='neg_mean_absolute_error',#'accuracy',,‘neg_mean_absolute_error’,'neg_root_mean_squared_error
-                                            n_iter = 60,
+                                            n_iter = 60,##Number of Triels to find the best grid
                                             n_jobs = 4,
                                             cv = KF, #k-fold number
                                             refit = True,
