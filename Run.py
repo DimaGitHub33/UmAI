@@ -143,7 +143,7 @@ print(AggregationTable_Y)
 
 
 from sklearn.datasets import make_classification
-make_classification_x,make_classification_y = make_classification(n_samples=10000)
+make_classification_x,make_classification_y = make_classification(n_samples=20000)
 
 
 
@@ -157,12 +157,12 @@ Data['priditScore'].describe()
 
 
 ##Rank The Pridit Score
-Dictionary = Ranks_Dictionary(RJitter(x = Data['priditScore'], factor = 0.00001), ranks_num=10)
+Dictionary = Ranks_Dictionary(RJitter(x = Data['priditScore'], factor = 0.0001), ranks_num=10)
 Dictionary.index = pd.IntervalIndex.from_arrays(Dictionary['lag_value'],Dictionary['value'],closed='left')
 
 # Convert Each value in variable to ranktype(FactorVariables)
 Data['Rank'] = Dictionary.loc[Data['priditScore']]['rank'].reset_index(drop=True)
-Data['Rank'] = np.where(Data['priditScore']<=0,-1,1)
+#Data['Rank'] = np.where(Data['priditScore']<=0,-1,1)
 
 ## Estimation function for mean, median and sum
 def aggregations(x):
@@ -175,7 +175,7 @@ def aggregations(x):
 
 
 AggregationTable_Y = Data.groupby('Rank')['Y'].apply(aggregations).reset_index()
-AggregationTable_Y= AggregationTable_Y.drop(columns=['level_1'])
+AggregationTable_Y = AggregationTable_Y.drop(columns=['level_1'])
 print(AggregationTable_Y)
 
 100*np.mean(make_classification_y)

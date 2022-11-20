@@ -10,7 +10,7 @@ from sklearn.datasets import load_breast_cancer
 breast_cancer_x,breast_cancer_y = load_breast_cancer(return_X_y=True)
 
 from sklearn.datasets import make_classification
-make_classification_x,make_classification_y = make_classification(n_samples=5000)
+make_classification_x,make_classification_y = make_classification(n_samples=1000)
 
 ## 1) Pridit Score ----------------------------------------------------------------------------------
 # conf = {
