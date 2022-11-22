@@ -49,7 +49,7 @@ Output.groupby('RealY')['predictGBM'].apply(np.mean).reset_index()##Checking the
 
 
 ## 3) Predict ----------------------------------------------------------------------------------
-make_classification_x,make_classification_y = make_classification(n_samples=2000)
+make_classification_x,make_classification_y = make_classification(n_samples=20000)
 NewData = pd.concat([pd.DataFrame(make_classification_x),pd.DataFrame({'Y':make_classification_y})],axis=1)
 
 conf={

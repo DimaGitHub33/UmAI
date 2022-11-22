@@ -5,6 +5,10 @@
 # datasets
 *.csv
 *.zip
+*.pdf
+*.Rhistory
+*.r
+*.pckl
 
 # models
 *.h5

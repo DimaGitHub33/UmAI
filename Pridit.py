@@ -87,6 +87,14 @@ class PriditClassifier():
             factorVariables = conf['FactorVariables']
             numericVariables = conf['NumericVariables']
 
+        ## Remove all the unique columns in Data
+        print("Removing all the unique columns in the data")
+        for colName in Data.columns:
+            if len(Data.loc[:,colName].unique())==1:
+                print(colName + " Removed")
+                Data.drop(colName, inplace=True, axis=1)
+        print("\n")
+
         ## Fill the FactorVariables and NumericVariables list for other columns in the input data ----
         if (conf['UsingFacotr'] == 'Both'):
 
