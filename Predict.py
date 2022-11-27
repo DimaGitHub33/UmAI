@@ -29,7 +29,7 @@ import shap
 
 
 ## ------------------------------------------------------------------------------------------------
-## ----------------------------------------- Model ------------------------------------------------
+## ----------------------------------------- Predict ----------------------------------------------
 ## ------------------------------------------------------------------------------------------------
 
 class Predict():
@@ -61,6 +61,8 @@ class Predict():
          GBMModel,
          maxY,
          minY,
+         logisticRegressionModel,
+         predictionsDictionary,
          CreateModelDate] = obj
        
         del f, Path, obj   
@@ -124,20 +126,29 @@ class Predict():
         del numericYMC 
 
         
-        
         ### -----------------------------------------------------------------------
-        ### ----------------------- Target Model ----------------------------------
+        ### ----------------------- Predict ---------------------------------------
         ### -----------------------------------------------------------------------
-        ### Taking the YMC_Suspicious variables -----------------------------------
 
+        ## GBM ------------------------------------------------------
         XTest = Data.loc[:,GBMModel.feature_names].astype(float)
-        Data['predictGBM'] = GBMModel.predict(XTest)
-        Data['predictGBM'] = Data['predictGBM'].astype(float)
-        Data['predictGBM'] = np.where(Data['predictGBM']>=maxY,maxY,Data['predictGBM'])
-        Data['predictGBM'] = np.where(Data['predictGBM']<=minY,minY,Data['predictGBM'])
+        Data['PredictGBM'] = GBMModel.predict(XTest)
+        Data['PredictGBM'] = Data['PredictGBM'].astype(float)
+        Data['PredictGBM'] = np.where(Data['PredictGBM']>=maxY,maxY,Data['PredictGBM'])
+        Data['PredictGBM'] = np.where(Data['PredictGBM']<=minY,minY,Data['PredictGBM'])
 
+        ## Ranks ----------------------------------------------------
+        predictionsDictionary = Ranks_Dictionary(RJitter(Data['PredictGBM'],0.00001), ranks_num = 10)
+        predictionsDictionary.index = pd.IntervalIndex.from_arrays(predictionsDictionary['lag_value'],
+                                                                  predictionsDictionary['value'],
+                                                                  closed='left')
+        # Convert Each prediction value to rank
+        Data['Rank'] = predictionsDictionary.loc[Data['PredictGBM']]['rank'].reset_index(drop=True)
 
-        ### Variable Explainer - ----------------------------------
+        ## Logistic Regression ------------------------------------
+        Data['PredictLogisticRegression'] = logisticRegressionModel.predict_proba(XTest.astype(float))[:,1]
+
+        ### Variable Explainer ------------------------------------
         explainer = shap.Explainer(GBMModel, Data.loc[:,GBMModel.feature_names].astype(float), feature_names = GBMModel.feature_names) #Instead of Explainer put TreeExplainer if the model is tree based
         shap_values = explainer(Data.loc[:,GBMModel.feature_names].astype(float))
         #shap.summary_plot(shap_values, Data.loc[:,GBMModel.feature_names].astype(float))
@@ -174,8 +185,9 @@ class Predict():
         
 
         ### Output ----------------------------------------------------------------
-        Output = pd.DataFrame(data={'predictGBM': Data['predictGBM'],
-
+        Output = pd.DataFrame(data={'PredictGBM': Data['PredictGBM'],
+                                    'Rank': Data['Rank'],
+                                    'PredictLogisticRegression': Data['PredictLogisticRegression'],
                                     'VariableImportance1': Data['VariableImportance1'],
                                     'VariableImportance2': Data['VariableImportance2'],
                                     'VariableImportance3': Data['VariableImportance3'],
@@ -188,15 +200,18 @@ class Predict():
 
 
 #Check The Model --------------------------------------------------------  
-# Data = pd.read_parquet('/Users/dhhazanov/Downloads/ppp_v1.parquet.gzip', engine='pyarrow')
+# from sklearn.datasets import make_classification
+# makeClassificationX,makeClassificationY = make_classification(n_samples=20000)
+# Data = pd.DataFrame(makeClassificationX)
+# Data['Y'] = pd.DataFrame(makeClassificationY)
+
 # conf={
 #     'Path':'/Users/dhhazanov/UmAI/Models/Model.pckl'
 # }
 # Predictions = Predict(Data,conf).Predict()
 # Predictions.describe()
 
-# Data['Predictions'] = Predictions['predictGBM']
-
-# Data['Target'] = np.where(Data['GIL'] >= Data['GIL'].mean(),1,0)
-# AggregationTable = Data.groupby('Target')['Predictions'].apply(np.mean).reset_index()
-# AggregationTable
+# Predictions['ActualY'] = pd.DataFrame(makeClassificationY)
+# Predictions.groupby('ActualY')['PredictGBM'].apply(np.mean).reset_index()
+# Predictions.groupby('Rank')['PredictGBM'].apply(np.mean).reset_index()
+# Predictions.groupby('Rank')['ActualY'].apply(np.mean).reset_index()

@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 from sklearn.model_selection import RandomizedSearchCV, KFold
+from sklearn.linear_model import LogisticRegression
 
 from Functions import Ranks_Dictionary, RJitter, FunFactorYMC, FunNumericYMC
 pd.options.display.float_format = '{:.2f}'.format
@@ -73,14 +74,20 @@ class Model():
             except Exception:           
                 print("Didn't selected anything")         
                 raise  
+
         if(len(conf['ColumnSelectionType'])!=0 and len(conf['Drop'])!=0):
             try:
-                Data = Data.drop(conf['Drop'],axis=1)
-                print('Droped selected columns')
+                if(len(np.intersect1d(Data.columns.values,conf['Drop']))==0):
+                    print("Didn't drop any columns")         
+                else:
+                    Data = Data.drop(conf['Drop'],axis=1)
+                    print('Droped selected columns:')
+                    print(conf['Drop'])
             except Exception:           
                 print("Didn't drop any columns")         
                 raise  
-
+        
+        print("\n")
         ## Insert Target columns -----------------------------------------------------
         Data['Target'] = Target
         del Target
@@ -111,7 +118,12 @@ class Model():
         YMCFactorDictionaryList = dict()
         for variableToConvert in factorVariables:
             #print(variableToConvert)
-            ##Creating the YMC Dictionaries
+
+            ## If There is only one factor in the variable we continiue to the next variable
+            if (len(Data[variableToConvert].unique()) < 2):
+                continue
+
+            ## YMC for the factor
             meanDictionary = FunFactorYMC(VariableToConvert = variableToConvert, TargetName = 'Target',Data = Data, FrequencyNumber = 100, Fun = np.median, Suffix='_MeanFactorYMC' )
             medianDictionary = FunFactorYMC(VariableToConvert = variableToConvert, TargetName = 'Target',Data = Data, FrequencyNumber = 100, Fun = np.median, Suffix='_MedianFactorYMC' )
             Dictionary = meanDictionary.merge(medianDictionary, on = "Variable")
@@ -155,7 +167,12 @@ class Model():
             Variable = Data[variableToConvert].astype(float)
             Variable = Variable.fillna(0)
 
-            YMCDictionaryNumericList[variableToConvert] = FunNumericYMC(Variable = Variable,Target = Data['Target'],NumberOfGroups = 10,Fun = np.mean,Name = "MeanNumericYMC")
+            ## If There is only one factor in the variable we continiue to the next variable
+            if (len(Variable.unique()) < 2):
+                continue
+            
+            ## YMC dictionary for numeric data
+            YMCDictionaryNumericList[variableToConvert] = FunNumericYMC(Variable = Variable,Target = Data['Target'],NumberOfGroups = max(10, round(len(Variable) / 600)),Fun = np.mean,Name = "MeanNumericYMC")
         
             ### Delete all temporary Variables ----------------------------------------
             del Variable
@@ -262,9 +279,17 @@ class Model():
         # results.sort_values(by="mean_test_score",ascending=False,inplace=True)
         # results.reset_index(drop=False,inplace=True)
         # results['mean_test_score'].plot(yerr=[results['std_test_score'], results['std_test_score']],subplots=True)
+        
         ### Saving the features name ------------------------------------------
         GBMModel.feature_names = list(YMCVariables)
         
+        ## Logistic Regression ------------------------------------------------
+        logisticRegressionModel = LogisticRegression(max_iter=1000).fit(XTrain.astype(float), YTrain)    
+
+        ##Output the prediction 
+        Data['PredictLogisticRegression'] = logisticRegressionModel.predict_proba(XTrain.astype(float))[:,1]
+
+
         ## Maximum and Minimum Y ----------------------------------------------
         maxY = np.max(YTrain)
         minY = np.min(YTrain)
@@ -277,6 +302,21 @@ class Model():
         del YTrain
         del GBMGridSearch
         del KF
+
+        ## Predictions ----------------------------------------------------
+        XTest = Data.loc[:,GBMModel.feature_names].astype(float)
+        Data['PredictGBM'] = GBMModel.predict(XTest)
+        Data['PredictGBM'] = Data['PredictGBM'].astype(float)
+        Data['PredictGBM'] = np.where(Data['PredictGBM']>=maxY,maxY,Data['PredictGBM'])
+        Data['PredictGBM'] = np.where(Data['PredictGBM']<=minY,minY,Data['PredictGBM'])
+   
+        ## Ranks ----------------------------------------------------
+        predictionsDictionary = Ranks_Dictionary(RJitter(Data['PredictGBM'],0.00001), ranks_num = 10)
+        predictionsDictionary.index = pd.IntervalIndex.from_arrays(predictionsDictionary['lag_value'],
+                                                                  predictionsDictionary['value'],
+                                                                  closed='left')
+        # Convert Each prediction value to rank
+        Data['Rank'] = predictionsDictionary.loc[Data['PredictGBM']]['rank'].reset_index(drop=True)
 
         ### Current Time -------------------------------------------------------
         now = datetime.now() 
@@ -296,6 +336,8 @@ class Model():
                     GBMModel,
                     maxY,
                     minY,
+                    logisticRegressionModel,
+                    predictionsDictionary,
                     CreateModelDate], f)
 
         f.close()
@@ -306,26 +348,29 @@ class Model():
         ### Taking the YMC_Suspicious variables -----------------------------------
 
         XTest = Data.loc[:,GBMModel.feature_names].astype(float)
-        Data['predictGBM'] = GBMModel.predict(XTest)
-        Data['predictGBM'] = Data['predictGBM'].astype(float)
-        Data['predictGBM'] = np.where(Data['predictGBM']>=maxY,maxY,Data['predictGBM'])
-        Data['predictGBM'] = np.where(Data['predictGBM']<=minY,minY,Data['predictGBM'])
+        Data['PredictGBM'] = GBMModel.predict(XTest)
+        Data['PredictGBM'] = Data['PredictGBM'].astype(float)
+        Data['PredictGBM'] = np.where(Data['PredictGBM']>=maxY,maxY,Data['PredictGBM'])
+        Data['PredictGBM'] = np.where(Data['PredictGBM']<=minY,minY,Data['PredictGBM'])
 
         ### Output ----------------------------------------------------------------
         Output = pd.DataFrame(data={'Target': Data['Target'],
-                                    'predictGBM': Data['predictGBM']})
+                                    'PredictGBM': Data['PredictGBM'],
+                                    'PredictLogisticRegression': Data['PredictLogisticRegression'],
+                                    'Rank': Data['Rank']})
 
         return Output
 
 
 #Check The Model --------------------------------------------------------  
-# Data = pd.read_parquet('/Users/dhhazanov/Downloads/ppp_v1.parquet.gzip', engine='pyarrow')
+# from sklearn.datasets import make_classification
+# makeClassificationX,makeClassificationY = make_classification(n_samples=10000)
+# Data = pd.DataFrame(makeClassificationX)
+# Data['Y'] = pd.DataFrame(makeClassificationY)
 
-# #Data['Target'] = np.where(Data['GIL'] >= Data['GIL'].mean(),1,0)
-# Data['Target2'] = np.where(Data['GIL'] >= Data['GIL'].mean(),1,0)
 # conf={
 #     'Path':'/Users/dhhazanov/UmAI/Models/Model.pckl',
-#     'Target':'Target2',
+#     'Target':'Y',
 #     'ColumnSelectionType': 'Drop',#Drop,Keep
 #     'Keep': None,#['GENDER', 'FAMILY_STATUS','GIL'],
 #     'Drop': ['GIL','ISUK_MERAKEZ','FAMILY_STATUS','ISHUN','M_CHOD_TASHLOM_BR'],#None,
@@ -334,4 +379,6 @@ class Model():
 # RunModel = Model(Data,conf)
 # Output = RunModel.fit()
 
-# Output.groupby('Target')['predictGBM'].apply(np.mean).reset_index()
+# Output.groupby('Target')['PredictGBM'].apply(np.mean).reset_index()
+# Output.groupby('Rank')['PredictGBM'].apply(np.mean).reset_index()
+# Output.groupby('Rank')['Target'].apply(np.mean).reset_index()
