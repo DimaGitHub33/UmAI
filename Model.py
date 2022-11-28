@@ -13,6 +13,8 @@ from sklearn.linear_model import LogisticRegression
 from Functions import Ranks_Dictionary, RJitter, FunFactorYMC, FunNumericYMC
 pd.options.display.float_format = '{:.2f}'.format
 import warnings
+import logging as logger
+
 #from sklearn.linear_model import LogisticRegression
 #import lifelines
 #from lifelines.utils import k_fold_cross_validation
@@ -32,62 +34,82 @@ import warnings
 ## ------------------------------------------------------------------------------------------------
 class Model():
     ## Ranks Dictionary -----------------------------------------------------------
-    def __init__(self, Data, conf):
+    def __init__(self, Data, conf, logger):
         self.Data = Data
         self.conf = conf
+        self.logger = logger
+
+        self.logger.debug('Model was created')
 
     def fit(self):
         Data = self.Data
         conf = self.conf
+        Logger = self.logger
+
+        Logger.debug('fit called with parameters conf={conf} '.format(conf=self.conf))
+
+        Logger.info('check conf params ')
 
         ## convert columns names to string -----------------------------------------
         Data.columns = Data.columns.astype(str)
 
         ## Fill Configuration ------------------------------------------------------
         if (not 'factorVariables' in conf or conf['factorVariables'] == None):
+            Logger.info('factorVariables not found in conf using default -> []')
+
             conf['factorVariables'] = []
             factorVariables = conf['factorVariables']
         if (not 'numericVariables' in conf or conf['numericVariables'] == None):
+            Logger.info('numericVariables not found in conf using default -> []]')
             conf['numericVariables'] = []
             numericVariables = conf['numericVariables']
         if (not 'ColumnSelectionType' in conf or conf['ColumnSelectionType'] == None):
+            Logger.info('ColumnSelectionType not found in conf using default -> None')
+            Logger.info('ColumnSelectionType not found in conf using default for \"Keep\" -> []')
+            Logger.info('ColumnSelectionType not found in conf using default for \"Drop\" -> []')
             conf['ColumnSelectionType'] = []
             conf['Keep'] = []
             conf['Drop'] = []
-        if (conf['ColumnSelectionType'] != None and conf['Keep']==None):
+        if (conf['ColumnSelectionType'] != None and conf['Keep'] == None):
+            Logger.info('ColumnSelectionType not found in conf using default for \"Keep\" -> []')
             conf['Keep'] = []
-        if (conf['ColumnSelectionType'] != None and conf['Drop']==None):
+        if (conf['ColumnSelectionType'] != None and conf['Drop'] == None):
+            Logger.info('ColumnSelectionType not found in conf using default for \"Drop\" -> []')
             conf['Drop'] = []
 
         ## Save Target columns -----------------------------------------------------
         Target = Data[conf['Target']]
+
+        Logger.info('Target  -> {Target}'.format(Target=Target))
         try:
-            Data = Data.drop(conf['Target'],axis=1)
-        except Exception:           
-            print("Target column is not exist")   
+            Logger.info('dropping target {Target}'.format(Target=Target))
+            Data = Data.drop(conf['Target'], axis=1)
+        except Exception:
+
+            Logger.error("Target column is not exist")
 
         ## Drop ot Select columns from Data ----------------------------------------
-        if(len(conf['ColumnSelectionType'])!=0 and len(conf['Keep'])!=0):     
+        if (len(conf['ColumnSelectionType']) != 0 and len(conf['Keep']) != 0):
             try:
-                Data = Data.loc[:,np.intersect1d(Data.columns.values,conf['Keep'])]
-                print('Selected chosen columns')
-            except Exception:           
-                print("Didn't selected anything")         
-                raise  
+                Logger.info('conf[\'Keep\']={columns}'.format(columns=conf['Keep']))
+                Data = Data.loc[:, np.intersect1d(Data.columns.values, conf['Keep'])]
+                Logger.info('Selected chosen columns , columns={columns}'.format(columns=Data.columns))
+            except Exception:
+                Logger.error("Didn't selected anything")
+                raise
 
-        if(len(conf['ColumnSelectionType'])!=0 and len(conf['Drop'])!=0):
+        if (len(conf['ColumnSelectionType']) != 0 and len(conf['Drop']) != 0):
             try:
                 if(len(np.intersect1d(Data.columns.values,conf['Drop']))==0):
-                    print("Didn't drop any columns")         
+                    Logger.error("Didn't drop any columns")         
                 else:
+                    Logger.info('dropping columns using , conf[\'Drop\']={drop}'.format(drop=conf['Drop']))
                     Data = Data.drop(conf['Drop'],axis=1)
-                    print('Droped selected columns:')
-                    print(conf['Drop'])
+                    Logger.info('Droped selected columns')
             except Exception:           
-                print("Didn't drop any columns")         
+                Logger.error("Didn't drop any columns")      
                 raise  
         
-        print("\n")
         ## Insert Target columns -----------------------------------------------------
         Data['Target'] = Target
         del Target
@@ -97,23 +119,22 @@ class Model():
         numericVariables = conf['numericVariables']
 
         ## Fill the FactorVariables and NumericVariables list ----------------------
-        if factorVariables is None or len(factorVariables)==0:
+        if factorVariables is None or len(factorVariables) == 0:
             factorVariables = []
             data_types = Data.dtypes.reset_index().rename(columns={'index': 'Index', 0: 'Type'})
-            data_types = data_types[data_types['Index']!='Target']##Removing the target from factorVariables list
+            data_types = data_types[data_types['Index'] != 'Target']  ##Removing the target from factorVariables list
             for Index, row in data_types.iterrows():
                 if row['Type'] in ['object', 'str']:
                     factorVariables.append(row['Index'])
 
-        if numericVariables is None or len(numericVariables)==0:
+        if numericVariables is None or len(numericVariables) == 0:
             numericVariables = []
             data_types = Data.dtypes.reset_index().rename(columns={'index': 'Index', 0: 'Type'})
-            data_types = data_types[data_types['Index']!='Target']##Removing the target from factorVariables list
+            data_types = data_types[data_types['Index'] != 'Target']  ##Removing the target from factorVariables list
             for Index, row in data_types.iterrows():
                 if row['Type'] in ['int64', 'float64']:
                     numericVariables.append(row['Index'])
 
-                
         ### Creating YMC Dictionaries for Factors (Creating the dictionaries) -----
         YMCFactorDictionaryList = dict()
         for variableToConvert in factorVariables:
@@ -136,30 +157,28 @@ class Model():
             del meanDictionary
             del medianDictionary
             del Dictionary
-        
-            
+
         ### Inserting the Total YMC Measures for all the new predictions ----------
-        totalYMeanTarget = np.mean(Data['Target'])   
-        totalYMedianTarget = np.median(Data['Target'])   
+        totalYMeanTarget = np.mean(Data['Target'])
+        totalYMedianTarget = np.median(Data['Target'])
 
         ### Inserting the YMC Values from the dictionaries to the DataPanel -------
         for variableName in YMCFactorDictionaryList:
             # variableName="M_ERUAS"
             Data.loc[:, variableName] = Data[variableName].astype(str)
-            
+
             YMCDictionary = YMCFactorDictionaryList[variableName]
-            YMCDictionary.columns = [variableName, 
-                                    variableName+"_MeanFactorYMC",
-                                    variableName+"_MedianFactorYMC"]
-        
+            YMCDictionary.columns = [variableName,
+                                     variableName + "_MeanFactorYMC",
+                                     variableName + "_MedianFactorYMC"]
+
             Data = Data.join(YMCDictionary.set_index([variableName]), how='left', on=[variableName])
-            Data.loc[:, variableName+"_MeanFactorYMC"] = Data[variableName+"_MeanFactorYMC"].fillna(totalYMeanTarget)        
-            Data.loc[:, variableName+"_MedianFactorYMC"] = Data[variableName+"_MedianFactorYMC"].fillna(totalYMedianTarget)
-        
+            Data.loc[:, variableName + "_MeanFactorYMC"] = Data[variableName + "_MeanFactorYMC"].fillna(totalYMeanTarget)
+            Data.loc[:, variableName + "_MedianFactorYMC"] = Data[variableName + "_MedianFactorYMC"].fillna(totalYMedianTarget)
+
             ### Delete all temporary Variables ----------------------------------------       
             del YMCDictionary
-            del variableName 
-
+            del variableName
 
         ### Numerical Data Manipulation (YMC) -------------------------------------
         YMCDictionaryNumericList = dict()
@@ -182,25 +201,25 @@ class Model():
         numericYMC = pd.DataFrame(data={})
         for variableToConvert in numericVariables:
             Variable = pd.DataFrame(data={variableToConvert: Data[variableToConvert].astype(float)})
-            Variable.loc[:,variableToConvert] = Variable[variableToConvert].fillna(0)
-        
+            Variable.loc[:, variableToConvert] = Variable[variableToConvert].fillna(0)
+
             # Inserting the numeric dictionary into VariableDictionary
             VariableDictionary = YMCDictionaryNumericList[variableToConvert]
-        
+
             # Adding All the YMC
             VariableDictionary.index = pd.IntervalIndex.from_arrays(VariableDictionary['lag_value'],
                                                                     VariableDictionary['value'],
                                                                     closed='left')
             V = Variable[variableToConvert]
             Variable[['MeanNumericYMC']] = VariableDictionary.loc[V][['MeanNumericYMC']].reset_index(drop=True)
-        
+
             # Creating YMC table
             YMC = pd.DataFrame(data={'variableToConvert_MeanNumericYMC': Variable['MeanNumericYMC']})
-            
+
             # Left join YMC table to NUmeric_YMC table
             numericYMC = pd.concat([numericYMC, YMC], axis=1)
             numericYMC.columns = list(map(lambda x: x.replace('variableToConvert', variableToConvert, 1), numericYMC.columns))
-        
+
             ### Delete all temporary Variables ----------------------------------------
             del variableToConvert
             del Variable
@@ -209,34 +228,33 @@ class Model():
             del YMC
 
         ### Left join of Numeric_YMC table to the DataPanel -----------------------
-        #Data = Data.join(Numeric_YMC.set_index('ClaimNo_Descision'), how='left', on='ClaimNo_Descision')
-        Data = pd.concat([Data,numericYMC], axis = 1)
-        
-        ### Delete all temporary Variables ----------------------------------------
-        del numericYMC 
+        # Data = Data.join(Numeric_YMC.set_index('ClaimNo_Descision'), how='left', on='ClaimNo_Descision')
+        Data = pd.concat([Data, numericYMC], axis=1)
 
-        
+        ### Delete all temporary Variables ----------------------------------------
+        del numericYMC
+
         ### -----------------------------------------------------------------------
         ### ----------------------- Target Model ----------------------------------
         ### -----------------------------------------------------------------------
         ### Taking the YMC_Suspicious variables -----------------------------------
 
         YMCVariables = Data.columns[["_MeanNumericYMC" in i or "_MeanFactorYMC" in i or "_MedianFactorYMC" in i for i in Data.columns]]
-        YMCVariables = (*YMCVariables,*numericVariables)
-        
+        YMCVariables = (*YMCVariables, *numericVariables)
+
         ### Creating Train Data for model -------------------------------------
-        XTrain = Data.loc[:,YMCVariables].astype(float)
+        XTrain = Data.loc[:, YMCVariables].astype(float)
         YTrain = Data['Target']
-        
+
         ### Removing null from the model ---------------------
-        XTrain = XTrain.loc[~np.isnan(YTrain),:].reset_index(drop=True)
+        XTrain = XTrain.loc[~np.isnan(YTrain), :].reset_index(drop=True)
         YTrain = YTrain.loc[~np.isnan(YTrain)].reset_index(drop=True)
 
         ### Defining the model ------------------------------------------------
         # objective = 'multiclass'
-        LGBEstimator = LightGBM.LGBMRegressor(boosting_type = 'gbdt',
-                                              objective = 'regression')
-        
+        LGBEstimator = LightGBM.LGBMRegressor(boosting_type='gbdt',
+                                              objective='regression')
+
         ### Defining the Grid -------------------------------------------------
         # parameters = {'num_leaves':[20,40,60,80,100], 
         #               #'panalty': ['l1','l2'],
@@ -270,8 +288,8 @@ class Model():
                                             )
                                  
         GBMModel = GBMGridSearch.fit(X=XTrain, y=YTrain)
+  
 
-             
         ### Fitting the best model --------------------------------------------
         GBMModel = GBMModel.best_estimator_.fit(X=XTrain, y=YTrain)
         # GBMModel.best_params_ #{'learning_rate': 0.06838596828617904, 'max_depth': 14, 'min_child_samples': 0, 'n_estimators': 195, 'num_leaves': 310, 'reg_alpha': 0.30033842756085605}
@@ -289,7 +307,6 @@ class Model():
         ##Output the prediction 
         Data['PredictLogisticRegression'] = logisticRegressionModel.predict_proba(XTrain.astype(float))[:,1]
 
-
         ## Maximum and Minimum Y ----------------------------------------------
         maxY = np.max(YTrain)
         minY = np.min(YTrain)
@@ -302,7 +319,7 @@ class Model():
         del YTrain
         del GBMGridSearch
         del KF
-
+        
         ## Predictions ----------------------------------------------------
         XTest = Data.loc[:,GBMModel.feature_names].astype(float)
         Data['PredictGBM'] = GBMModel.predict(XTest)
@@ -347,11 +364,11 @@ class Model():
         ### -----------------------------------------------------------------------
         ### Taking the YMC_Suspicious variables -----------------------------------
 
-        XTest = Data.loc[:,GBMModel.feature_names].astype(float)
+        XTest = Data.loc[:, GBMModel.feature_names].astype(float)
         Data['PredictGBM'] = GBMModel.predict(XTest)
         Data['PredictGBM'] = Data['PredictGBM'].astype(float)
-        Data['PredictGBM'] = np.where(Data['PredictGBM']>=maxY,maxY,Data['PredictGBM'])
-        Data['PredictGBM'] = np.where(Data['PredictGBM']<=minY,minY,Data['PredictGBM'])
+        Data['PredictGBM'] = np.where(Data['PredictGBM'] >= maxY, maxY, Data['PredictGBM'])
+        Data['PredictGBM'] = np.where(Data['PredictGBM'] <= minY, minY, Data['PredictGBM'])
 
         ### Output ----------------------------------------------------------------
         Output = pd.DataFrame(data={'Target': Data['Target'],
@@ -360,7 +377,6 @@ class Model():
                                     'Rank': Data['Rank']})
 
         return Output
-
 
 #Check The Model --------------------------------------------------------  
 # from sklearn.datasets import make_classification
@@ -376,9 +392,10 @@ class Model():
 #     'Drop': ['GIL','ISUK_MERAKEZ','FAMILY_STATUS','ISHUN','M_CHOD_TASHLOM_BR'],#None,
 #     'ModelType': None #GBM,Linear regression,...
 # }
-# RunModel = Model(Data,conf)
+# RunModel = Model(Data,conf,logger)
 # Output = RunModel.fit()
 
 # Output.groupby('Target')['PredictGBM'].apply(np.mean).reset_index()
 # Output.groupby('Rank')['PredictGBM'].apply(np.mean).reset_index()
 # Output.groupby('Rank')['Target'].apply(np.mean).reset_index()
+# Output.groupby('Rank')['PredictLogisticRegression'].apply(np.mean).reset_index()

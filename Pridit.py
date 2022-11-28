@@ -4,14 +4,20 @@ import random as Random
 from warnings import simplefilter
 from sklearn.decomposition import PCA
 from Functions import Ranks_Dictionary, RJitter, FunFactorYMC, FunNumericYMC
+import logging as logger
 
 ## Remove the warnings in the console --------------------------------------------
 simplefilter(action="ignore", category=pd.errors.PerformanceWarning)
 
+
 class PriditClassifier():
-    def __init__(self, Data, conf):
+    def __init__(self, Data, conf, logger):
+
         self.Data = Data
         self.conf = conf
+        self.logger = logger
+
+        self.logger.debug('PriditClassifier was created')
 
     ## Pridit ----------------------------------------------------------------------
     """    
@@ -66,37 +72,49 @@ class PriditClassifier():
     def Pridit(self):
         conf = self.conf
         Data = self.Data
-        
+        Logger = self.logger
+        Logger.debug('pridit called with parameters conf={conf} '.format(conf=self.conf))
+
+        Logger.info('check conf params ')
         ## Fill Configuration -----------------------------------------------------
-        if (not 'UsingFacotr' in conf):
-            conf['UsingFacotr'] = None
+        if (not 'UsingFactor' in conf):
+            Logger.info('UsingFactor not found in conf using default -> None')
+            conf['UsingFactor'] = None
         if (not 'FactorVariables' in conf or conf['FactorVariables'] == None):
+            Logger.info('FactorVariables not found in conf using default -> []')
             conf['FactorVariables'] = []
             factorVariables = conf['FactorVariables']
         if (not 'NumericVariables' in conf or conf['NumericVariables'] == None):
+            Logger.info('NumericVariables not found in conf using default -> []')
             conf['NumericVariables'] = []
             numericVariables = conf['NumericVariables']
         if (not 'FactorsVariablesOrder' in conf):
+            Logger.info('FactorsVariablesOrder not found in conf using default -> None')
             conf['FactorsVariablesOrder'] = None
         if (not 'NumericVariablesOrder' in conf):
+            Logger.info('NumericVariablesOrder not found in conf using default -> None')
             conf['NumericVariablesOrder'] = None
-        if (not 'UsingFacotr' in conf):
+        if (not 'UsingFactor' in conf):
+            Logger.info('UsingFactor not found in conf using default -> None]')
             conf['NumericVariablesOrder'] = None
 
-        if (conf['UsingFacotr'] == 'OnlyVariables'):
+        if (conf['UsingFactor'] == 'OnlyVariables'):
             factorVariables = conf['FactorVariables']
             numericVariables = conf['NumericVariables']
-
+            
         ## Remove all the unique columns in Data
-        print("Removing all the unique columns in the data")
+        Logger.info("Removing all the unique columns in the data")
         for colName in Data.columns:
             if len(Data.loc[:,colName].unique())==1:
-                print(colName + " Removed")
+                Logger.info(colName + " Removed")
                 Data.drop(colName, inplace=True, axis=1)
-        print("\n")
+        
+        Logger.info('execute pridit with conf -> {conf}'.format(conf=conf))
 
+        
         ## Fill the FactorVariables and NumericVariables list for other columns in the input data ----
-        if (conf['UsingFacotr'] == 'Both'):
+        if (conf['UsingFactor'] == 'Both'):
+            Logger.info('UsingFactor == Both using factors [FactorVariables + NumericVariables]'.format(conf=conf))
 
             factorVariables = conf['FactorVariables']
             numericVariables = conf['NumericVariables']
@@ -127,14 +145,16 @@ class PriditClassifier():
             del (factorVariables2)
 
         ## Fill the FactorVariables and NumericVariables list ----------------------
-        if factorVariables is None or len(factorVariables)==0:
+        if factorVariables is None or len(factorVariables) == 0:
+            Logger.info('factorVariables is None -> build auto factor variable'.format(conf=conf))
             factorVariables = []
             dataTypes = Data.dtypes.reset_index().rename(columns={'index': 'Index', 0: 'Type'})
             for Index, row in dataTypes.iterrows():
                 if row['Type'] in ['object', 'str']:
                     factorVariables.append(row['Index'])
 
-        if numericVariables is None or len(numericVariables)==0:
+        if numericVariables is None or len(numericVariables) == 0:
+            Logger.info('numericVariables is None -> build auto factor variable'.format(conf=conf))
             numericVariables = []
             dataTypes = Data.dtypes.reset_index().rename(columns={'index': 'Index', 0: 'Type'})
             for Index, row in dataTypes.iterrows():
@@ -143,7 +163,9 @@ class PriditClassifier():
 
         ## Fill the orders of the variables
         factorsVariablesOrder = conf['FactorsVariablesOrder']
+        Logger.info('using factorsVariablesOrder with {conf}'.format(conf=factorsVariablesOrder))
         numericVariablesOrder = conf['NumericVariablesOrder']
+        Logger.info('using NumericVariablesOrder with {conf}'.format(conf=numericVariablesOrder))
 
         ## F calculation for Factor variables  ------------------------------------
         F = pd.DataFrame()
@@ -233,7 +255,7 @@ class PriditClassifier():
 
         ## Calculating the Eigenvector of the maximum eigenvalues-------------------
         FMat = F.to_numpy()
-        FTF = np.matmul(FMat.T, FMat)##This is the covariance matrix
+        FTF = np.matmul(FMat.T, FMat)  ##This is the covariance matrix
         eigenvalues, eigenvectors = np.linalg.eigh(FTF)
         firstEigenVector = eigenvectors[:, np.argmax(eigenvalues)]
         priditScore = FMat.dot(firstEigenVector)
@@ -248,12 +270,6 @@ class PriditClassifier():
         #priditScore = FMat.dot(PC1)
 
         return priditScore,F,firstEigenVector
-
-
-
-
-
-
 
 # -----------------------------------------------------------------------------
 # -------------------------- Run Pridit Score function ------------------------
@@ -297,7 +313,7 @@ class PriditClassifier():
 # #     NumericVariablesOrder = pd.concat([NumericVariablesOrder, Rows])
 
 # conf = {
-#     'UsingFacotr': 'OnlyVariables',  ##Both, OnlyVariables, None
+#     'UsingFactor': 'OnlyVariables',  ##Both, OnlyVariables, None
 #     'FactorVariables': FactorVariables,  ##List, None
 #     'NumericVariables': NumericVariables,  ##list, None
 #     #'FactorVariables': [],  ##List, None
@@ -369,7 +385,7 @@ class PriditClassifier():
 #print(vectC)
 
 #conf = {
-    #'UsingFacotr': 'OnlyVariables',  ##Both, OnlyVariables, None
+    #'UsingFactor': 'OnlyVariables',  ##Both, OnlyVariables, None
     #'FactorVariables': FactorVariables,  ##List, None
     #'NumericVariables': NumericVariables,  ##list, None
     #'FactorVariables': None,  ##List, None
