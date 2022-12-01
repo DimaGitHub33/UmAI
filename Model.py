@@ -199,7 +199,7 @@ class Model():
 
         ### Creating the YMC calculation for each numeric variable ----------------
         numericYMC = pd.DataFrame(data={})
-        for variableToConvert in numericVariables:
+        for variableToConvert in YMCDictionaryNumericList:
             Variable = pd.DataFrame(data={variableToConvert: Data[variableToConvert].astype(float)})
             Variable.loc[:, variableToConvert] = Variable[variableToConvert].fillna(0)
 
@@ -238,12 +238,13 @@ class Model():
         ### ----------------------- Target Model ----------------------------------
         ### -----------------------------------------------------------------------
         ### Taking the YMC_Suspicious variables -----------------------------------
-
         YMCVariables = Data.columns[["_MeanNumericYMC" in i or "_MeanFactorYMC" in i or "_MedianFactorYMC" in i for i in Data.columns]]
-        YMCVariables = (*YMCVariables, *numericVariables)
+        #YMCVariables = (*YMCVariables, *numericVariables)
 
         ### Creating Train Data for model -------------------------------------
         XTrain = Data.loc[:, YMCVariables].astype(float)
+        #ColumnsMean = XTrain.mean()
+        #XTrain = XTrain.fillna(ColumnsMean)
         YTrain = Data['Target']
 
         ### Removing null from the model ---------------------
@@ -286,10 +287,8 @@ class Model():
                                             refit = True,
                                             random_state = 4
                                             )
-                                 
         GBMModel = GBMGridSearch.fit(X=XTrain, y=YTrain)
   
-
         ### Fitting the best model --------------------------------------------
         GBMModel = GBMModel.best_estimator_.fit(X=XTrain, y=YTrain)
         # GBMModel.best_params_ #{'learning_rate': 0.06838596828617904, 'max_depth': 14, 'min_child_samples': 0, 'n_estimators': 195, 'num_leaves': 310, 'reg_alpha': 0.30033842756085605}
@@ -394,6 +393,28 @@ class Model():
 # }
 # RunModel = Model(Data,conf,logger)
 # Output = RunModel.fit()
+
+# Output.groupby('Target')['PredictGBM'].apply(np.mean).reset_index()
+# Output.groupby('Rank')['PredictGBM'].apply(np.mean).reset_index()
+# Output.groupby('Rank')['Target'].apply(np.mean).reset_index()
+# Output.groupby('Rank')['PredictLogisticRegression'].apply(np.mean).reset_index()
+
+#Check The Model 2 --------------------------------------------------------  
+# Data = pd.read_csv('/Users/dhhazanov/UmAI/Eli_data_health.csv')
+# Data.head()
+# conf={
+#     'Path':'/Users/dhhazanov/UmAI/Models/Model.pckl',
+#     'Target':'Y',
+#     'ColumnSelectionType': 'Drop',#Drop,Keep
+#     'Keep': None,#['GENDER', 'FAMILY_STATUS','GIL'],
+#     'Drop': ['GIL','Unnamed: 0'],#None,
+#     'ModelType': None #GBM,Linear regression,...
+# }
+# Data['Y'] = np.where(Data['GIL'] >= Data['GIL'].mean(),1,0)
+
+# RunModel = Model(Data,conf,logger)
+# Output = RunModel.fit()         
+
 
 # Output.groupby('Target')['PredictGBM'].apply(np.mean).reset_index()
 # Output.groupby('Rank')['PredictGBM'].apply(np.mean).reset_index()

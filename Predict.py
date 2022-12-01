@@ -221,3 +221,18 @@ class Predict():
 # Predictions.groupby('Rank')['PredictGBM'].apply(np.mean).reset_index()
 # Predictions.groupby('Rank')['ActualY'].apply(np.mean).reset_index()
 # Predictions.groupby('Rank')['PredictLogisticRegression'].apply(np.mean).reset_index()
+
+
+#Check The Model 2 --------------------------------------------------------  
+# Data = pd.read_csv('/Users/dhhazanov/UmAI/Eli_data_health.csv')
+# conf={
+#     'Path':'/Users/dhhazanov/UmAI/Models/Model.pckl'
+# }
+# Predictions = Predict(Data,conf,logger).Predict()
+# Predictions.describe()
+
+# Predictions['ActualY'] = np.where(Data['GIL'] >= Data['GIL'].mean(),1,0)
+# Predictions.groupby('ActualY')['PredictGBM'].apply(np.mean).reset_index()
+# Predictions.groupby('Rank')['PredictGBM'].apply(np.mean).reset_index()
+# Predictions.groupby('Rank')['ActualY'].apply(np.mean).reset_index()
+# Predictions.groupby('Rank')['PredictLogisticRegression'].apply(np.mean).reset_index()
