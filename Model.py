@@ -44,70 +44,70 @@ class Model():
     def fit(self):
         Data = self.Data
         conf = self.conf
-        Logger = self.logger
+        logger = self.logger
 
-        Logger.debug('fit called with parameters conf={conf} '.format(conf=self.conf))
+        logger.debug('fit called with parameters conf={conf} '.format(conf = conf))
 
-        Logger.info('check conf params ')
+        logger.info('check conf params ')
 
         ## convert columns names to string -----------------------------------------
         Data.columns = Data.columns.astype(str)
 
         ## Fill Configuration ------------------------------------------------------
         if (not 'factorVariables' in conf or conf['factorVariables'] == None):
-            Logger.info('factorVariables not found in conf using default -> []')
+            logger.info('factorVariables not found in conf using default -> []')
 
             conf['factorVariables'] = []
             factorVariables = conf['factorVariables']
         if (not 'numericVariables' in conf or conf['numericVariables'] == None):
-            Logger.info('numericVariables not found in conf using default -> []]')
+            logger.info('numericVariables not found in conf using default -> []]')
             conf['numericVariables'] = []
             numericVariables = conf['numericVariables']
         if (not 'ColumnSelectionType' in conf or conf['ColumnSelectionType'] == None):
-            Logger.info('ColumnSelectionType not found in conf using default -> None')
-            Logger.info('ColumnSelectionType not found in conf using default for \"Keep\" -> []')
-            Logger.info('ColumnSelectionType not found in conf using default for \"Drop\" -> []')
+            logger.info('ColumnSelectionType not found in conf using default -> None')
+            logger.info('ColumnSelectionType not found in conf using default for \"Keep\" -> []')
+            logger.info('ColumnSelectionType not found in conf using default for \"Drop\" -> []')
             conf['ColumnSelectionType'] = []
             conf['Keep'] = []
             conf['Drop'] = []
         if (conf['ColumnSelectionType'] != None and conf['Keep'] == None):
-            Logger.info('ColumnSelectionType not found in conf using default for \"Keep\" -> []')
+            logger.info('ColumnSelectionType not found in conf using default for \"Keep\" -> []')
             conf['Keep'] = []
         if (conf['ColumnSelectionType'] != None and conf['Drop'] == None):
-            Logger.info('ColumnSelectionType not found in conf using default for \"Drop\" -> []')
+            logger.info('ColumnSelectionType not found in conf using default for \"Drop\" -> []')
             conf['Drop'] = []
 
         ## Save Target columns -----------------------------------------------------
         Target = Data[conf['Target']]
 
-        Logger.info('Target  -> {Target}'.format(Target=Target))
+        logger.info('Target  -> {Target}'.format(Target=Target))
         try:
-            Logger.info('dropping target {Target}'.format(Target=Target))
+            logger.info('dropping target {Target}'.format(Target=Target))
             Data = Data.drop(conf['Target'], axis=1)
         except Exception:
 
-            Logger.error("Target column is not exist")
+            logger.error("Target column is not exist")
 
         ## Drop ot Select columns from Data ----------------------------------------
         if (len(conf['ColumnSelectionType']) != 0 and len(conf['Keep']) != 0):
             try:
-                Logger.info('conf[\'Keep\']={columns}'.format(columns=conf['Keep']))
+                logger.info('conf[\'Keep\']={columns}'.format(columns=conf['Keep']))
                 Data = Data.loc[:, np.intersect1d(Data.columns.values, conf['Keep'])]
-                Logger.info('Selected chosen columns , columns={columns}'.format(columns=Data.columns))
+                logger.info('Selected chosen columns , columns={columns}'.format(columns=Data.columns))
             except Exception:
-                Logger.error("Didn't selected anything")
+                logger.error("Didn't selected anything")
                 raise
 
         if (len(conf['ColumnSelectionType']) != 0 and len(conf['Drop']) != 0):
             try:
                 if(len(np.intersect1d(Data.columns.values,conf['Drop']))==0):
-                    Logger.error("Didn't drop any columns")         
+                    logger.error("Didn't drop any columns")         
                 else:
-                    Logger.info('dropping columns using , conf[\'Drop\']={drop}'.format(drop=conf['Drop']))
+                    logger.info('dropping columns using , conf[\'Drop\']={drop}'.format(drop=conf['Drop']))
                     Data = Data.drop(conf['Drop'],axis=1)
-                    Logger.info('Droped selected columns')
+                    logger.info('Droped selected columns')
             except Exception:           
-                Logger.error("Didn't drop any columns")      
+                logger.error("Didn't drop any columns")      
                 raise  
         
         ## Insert Target columns -----------------------------------------------------
@@ -400,23 +400,23 @@ class Model():
 # Output.groupby('Rank')['PredictLogisticRegression'].apply(np.mean).reset_index()
 
 #Check The Model 2 --------------------------------------------------------  
-# Data = pd.read_csv('/Users/dhhazanov/UmAI/Eli_data_health.csv')
-# Data.head()
-# conf={
-#     'Path':'/Users/dhhazanov/UmAI/Models/Model.pckl',
-#     'Target':'Y',
-#     'ColumnSelectionType': 'Drop',#Drop,Keep
-#     'Keep': None,#['GENDER', 'FAMILY_STATUS','GIL'],
-#     'Drop': ['GIL','Unnamed: 0'],#None,
-#     'ModelType': None #GBM,Linear regression,...
-# }
-# Data['Y'] = np.where(Data['GIL'] >= Data['GIL'].mean(),1,0)
+Data = pd.read_csv('/Users/dhhazanov/UmAI/Eli_data_health.csv')
+Data.head()
+conf={
+    'Path':'/Users/dhhazanov/UmAI/Models/Model.pckl',
+    'Target':'Y',
+    'ColumnSelectionType': 'Drop',#Drop,Keep
+    'Keep': None,#['GENDER', 'FAMILY_STATUS','GIL'],
+    'Drop': ['GIL','Unnamed: 0'],#None,
+    'ModelType': None #GBM,Linear regression,...
+}
+Data['Y'] = np.where(Data['GIL'] >= Data['GIL'].mean(),1,0)
 
-# RunModel = Model(Data,conf,logger)
-# Output = RunModel.fit()         
+RunModel = Model(Data,conf,logger)
+Output = RunModel.fit()         
 
 
-# Output.groupby('Target')['PredictGBM'].apply(np.mean).reset_index()
-# Output.groupby('Rank')['PredictGBM'].apply(np.mean).reset_index()
-# Output.groupby('Rank')['Target'].apply(np.mean).reset_index()
-# Output.groupby('Rank')['PredictLogisticRegression'].apply(np.mean).reset_index()
+Output.groupby('Target')['PredictGBM'].apply(np.mean).reset_index()
+Output.groupby('Rank')['PredictGBM'].apply(np.mean).reset_index()
+Output.groupby('Rank')['Target'].apply(np.mean).reset_index()
+Output.groupby('Rank')['PredictLogisticRegression'].apply(np.mean).reset_index()

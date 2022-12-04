@@ -46,17 +46,17 @@ class Predict():
     def Predict(self):
         Data = self.Data
         conf = self.conf
-        Logger = self.logger
+        logger = self.logger
 
         ## convert columns names to string -----------------------------------------
         Data.columns = Data.columns.astype(str)
 
-        Logger.debug('fit called with parameters conf={conf} '.format(conf=self.conf))
+        logger.debug('fit called with parameters conf={conf} '.format(conf = conf))
         
         ### Load The Models ------------------------------------------------------- 
         Path = conf['Path']
 
-        Logger.debug('using path from conf , path={path} '.format(path=Path))
+        logger.debug('using path from conf , path={path} '.format(path=Path))
         # Path = Path.replace('Segment', Segment, 1)
         f = open(Path, 'rb')
         obj = pickle.load(f)
