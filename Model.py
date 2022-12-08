@@ -240,7 +240,7 @@ class Model():
         ### Taking the YMC_Suspicious variables -----------------------------------
         YMCVariables = Data.columns[["_MeanNumericYMC" in i or "_MeanFactorYMC" in i or "_MedianFactorYMC" in i for i in Data.columns]]
         #YMCVariables = (*YMCVariables, *numericVariables)
-
+    
         ### Creating Train Data for model -------------------------------------
         XTrain = Data.loc[:, YMCVariables].astype(float)
         #ColumnsMean = XTrain.mean()
@@ -253,8 +253,10 @@ class Model():
 
         ### Defining the model ------------------------------------------------
         # objective = 'multiclass'
-        LGBEstimator = LightGBM.LGBMRegressor(boosting_type='gbdt',
-                                              objective='regression')
+        # LGBEstimator = LightGBM.LGBMRegressor(boosting_type='gbdt',
+        #                                       objective='regression')
+        LGBEstimator = LightGBM.LGBMClassifier(boosting_type='gbdt',
+                                               objective='binary')
 
         ### Defining the Grid -------------------------------------------------
         # parameters = {'num_leaves':[20,40,60,80,100], 
@@ -280,7 +282,7 @@ class Model():
         ### Run the model -----------------------------------------------------
         GBMGridSearch = RandomizedSearchCV(estimator = LGBEstimator,
                                             param_distributions = parameters,
-                                            scoring='neg_mean_absolute_error',#'accuracy',,‘neg_mean_absolute_error’,'neg_root_mean_squared_error
+                                            scoring='accuracy',#'accuracy',,‘neg_mean_absolute_error’,'neg_root_mean_squared_error
                                             n_iter = 60,##Number of Triels to find the best grid
                                             n_jobs = 4,
                                             cv = KF, #k-fold number
@@ -320,8 +322,9 @@ class Model():
         del KF
         
         ## Predictions ----------------------------------------------------
-        XTest = Data.loc[:,GBMModel.feature_names].astype(float)
-        Data['PredictGBM'] = GBMModel.predict(XTest)
+        XTrain = Data.loc[:,GBMModel.feature_names].astype(float)
+        ##Data['PredictGBM'] = GBMModel.predict(XTrain)for GBM regressor
+        Data['PredictGBM'] = GBMModel.predict_proba(XTrain)[:,1]
         Data['PredictGBM'] = Data['PredictGBM'].astype(float)
         Data['PredictGBM'] = np.where(Data['PredictGBM']>=maxY,maxY,Data['PredictGBM'])
         Data['PredictGBM'] = np.where(Data['PredictGBM']<=minY,minY,Data['PredictGBM'])
@@ -358,17 +361,6 @@ class Model():
 
         f.close()
 
-        ### -----------------------------------------------------------------------
-        ### ----------------------- Prediction Model ------------------------------
-        ### -----------------------------------------------------------------------
-        ### Taking the YMC_Suspicious variables -----------------------------------
-
-        XTest = Data.loc[:, GBMModel.feature_names].astype(float)
-        Data['PredictGBM'] = GBMModel.predict(XTest)
-        Data['PredictGBM'] = Data['PredictGBM'].astype(float)
-        Data['PredictGBM'] = np.where(Data['PredictGBM'] >= maxY, maxY, Data['PredictGBM'])
-        Data['PredictGBM'] = np.where(Data['PredictGBM'] <= minY, minY, Data['PredictGBM'])
-
         ### Output ----------------------------------------------------------------
         Output = pd.DataFrame(data={'Target': Data['Target'],
                                     'PredictGBM': Data['PredictGBM'],
@@ -379,7 +371,7 @@ class Model():
 
 #Check The Model --------------------------------------------------------  
 # from sklearn.datasets import make_classification
-# makeClassificationX,makeClassificationY = make_classification(n_samples=10000)
+# makeClassificationX,makeClassificationY = make_classification(n_samples = 5000,class_sep = 4,random_state=0)
 # Data = pd.DataFrame(makeClassificationX)
 # Data['Y'] = pd.DataFrame(makeClassificationY)
 
@@ -400,23 +392,50 @@ class Model():
 # Output.groupby('Rank')['PredictLogisticRegression'].apply(np.mean).reset_index()
 
 #Check The Model 2 --------------------------------------------------------  
-Data = pd.read_csv('/Users/dhhazanov/UmAI/Eli_data_health.csv')
-Data.head()
-conf={
-    'Path':'/Users/dhhazanov/UmAI/Models/Model.pckl',
-    'Target':'Y',
-    'ColumnSelectionType': 'Drop',#Drop,Keep
-    'Keep': None,#['GENDER', 'FAMILY_STATUS','GIL'],
-    'Drop': ['GIL','Unnamed: 0'],#None,
-    'ModelType': None #GBM,Linear regression,...
-}
-Data['Y'] = np.where(Data['GIL'] >= Data['GIL'].mean(),1,0)
+# Data = pd.read_csv('/Users/dhhazanov/UmAI/Eli_data_health.csv')
+# Data.head()
+# conf={
+#     'Path':'/Users/dhhazanov/UmAI/Models/Model.pckl',
+#     'Target':'Y',
+#     'ColumnSelectionType': 'Drop',#Drop,Keep
+#     'Keep': None,#['GENDER', 'FAMILY_STATUS','GIL'],
+#     'Drop': ['GIL','Unnamed: 0'],#None,
+#     'ModelType': None #GBM,Linear regression,...
+# }
+# Data['Y'] = np.where(Data['GIL'] >= Data['GIL'].mean(),1,0)
 
-RunModel = Model(Data,conf,logger)
-Output = RunModel.fit()         
+# RunModel = Model(Data,conf,logger)
+# Output = RunModel.fit()         
 
 
-Output.groupby('Target')['PredictGBM'].apply(np.mean).reset_index()
-Output.groupby('Rank')['PredictGBM'].apply(np.mean).reset_index()
-Output.groupby('Rank')['Target'].apply(np.mean).reset_index()
-Output.groupby('Rank')['PredictLogisticRegression'].apply(np.mean).reset_index()
+# Output.groupby('Target')['PredictGBM'].apply(np.mean).reset_index()
+# Output.groupby('Rank')['PredictGBM'].apply(np.mean).reset_index()
+# Output.groupby('Rank')['Target'].apply(np.mean).reset_index()
+# Output.groupby('Rank')['PredictLogisticRegression'].apply(np.mean).reset_index() 
+
+
+## Read Data from local memory ---------------------------------------------------------------------------------
+# Data = pd.read_csv('/Users/dhhazanov/UmAI/ppp.parquet_1_for_model.csv')
+# Data = Data.head(1000)
+# Data['NewHistoricalYTarget'] = np.where(Data['GIL'] >= Data['GIL'].mean(),1,0)
+# conf={
+#     'Path':'/Users/dhhazanov/UmAI/Models/Model.pckl',
+#     'Target':'NewHistoricalYTarget',
+#     'ColumnSelectionType': 'Drop',#Drop,Keep
+#     'Keep': None,#['GENDER', 'FAMILY_STATUS','GIL'],
+#     'Drop': ['priditScore'], 
+#     'ModelType': None #GBM,Linear regression,...
+# }
+# # conf = {'Target': 'NewHistoricalYTarget',
+# #  'ColumnSelectionType': 'Drop', 
+# #  'Keep': None, 
+# #  'Drop': ['priditScore'], 
+# #  'ModelType': 'GBM', 
+# #  'DataFileType': 'parquet', 
+# #  'DataPath': 'C:/git/Vehicle_suspicious_score_prod/uploads//Umai/Admin-/0/ppp.parquet_1_for_model.gzip', 
+# #  'ScorePath': 'C:/git/Vehicle_suspicious_score_prod/uploads//Umai/Admin-/0/ppp.parquet_1_PriditScore'}
+# import re
+# Data = Data.rename(columns = lambda x:re.sub('[^A-Za-z0-9_]+', '', x))  
+# RunModel = Model(Data,conf,logger)
+# Output = RunModel.fit()    
+# # Data = pd.read_parquet(r'C:\github\Utilities\machine_learning_examples\ppp_v1.parquet.gzip', engine='pyarrow')

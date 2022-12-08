@@ -140,7 +140,8 @@ class Predict():
         ### -----------------------------------------------------------------------
         ## GBM ------------------------------------------------------
         XTest = Data.loc[:, GBMModel.feature_names].astype(float)
-        Data['PredictGBM'] = GBMModel.predict(XTest)
+        ##Data['PredictGBM'] = GBMModel.predict(XTest)for GBM regressor
+        Data['PredictGBM'] = GBMModel.predict_proba(XTest)[:,1]
         Data['PredictGBM'] = Data['PredictGBM'].astype(float)
         Data['PredictGBM'] = np.where(Data['PredictGBM'] >= maxY, maxY, Data['PredictGBM'])
         Data['PredictGBM'] = np.where(Data['PredictGBM'] <= minY, minY, Data['PredictGBM'])
@@ -206,7 +207,7 @@ class Predict():
 
 #Check The Model --------------------------------------------------------  
 # from sklearn.datasets import make_classification
-# makeClassificationX,makeClassificationY = make_classification(n_samples=10000)
+# makeClassificationX,makeClassificationY = make_classification(n_samples=10000,class_sep = 4,random_state=0)
 # Data = pd.DataFrame(makeClassificationX)
 # Data['Y'] = pd.DataFrame(makeClassificationY)
 
@@ -236,3 +237,15 @@ class Predict():
 # Predictions.groupby('Rank')['PredictGBM'].apply(np.mean).reset_index()
 # Predictions.groupby('Rank')['ActualY'].apply(np.mean).reset_index()
 # Predictions.groupby('Rank')['PredictLogisticRegression'].apply(np.mean).reset_index()
+
+
+#Check The Model 3 --------------------------------------------------------  
+# Data = pd.read_csv('/Users/dhhazanov/UmAI/ppp.parquet_1_test_for_predict.csv')
+# Data['Y'] = np.where(Data['GIL'] >= Data['GIL'].mean(),1,0)
+# conf={
+#     'Path':'/Users/dhhazanov/UmAI/Models/Model.pckl'
+# }
+# import re
+# Data = Data.rename(columns = lambda x:re.sub('[^A-Za-z0-9_]+', '', x))  
+# Predictions = Predict(Data,conf,logger).Predict()
+# Predictions.describe()   

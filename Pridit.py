@@ -207,13 +207,13 @@ class PriditClassifier():
 
         ## F calculation for numeric variables ------------------------------------
         for variableToConvert in [NV for NV in numericVariables if NV not in factorVariables]:
-            # print(VariableToConvert)
+            #print(variableToConvert)
             variable = Data[[variableToConvert]].copy().astype(float)
             variable = variable.fillna(np.mean(variable, axis=0))
             variable.columns = ["VariableToConvert"]
 
             # Rank the numeric variable
-            dictionary = Ranks_Dictionary(RJitter(variable['VariableToConvert'], 0.00001), ranks_num=10)
+            dictionary = Ranks_Dictionary(RJitter(variable['VariableToConvert'], 0.00001), ranks_num = max(10, round(len(variable['VariableToConvert']) / 600)))
             dictionary.index = pd.IntervalIndex.from_arrays(dictionary['lag_value'],
                                                             dictionary['value'],
                                                             closed='left')
