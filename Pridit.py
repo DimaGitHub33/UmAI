@@ -76,6 +76,10 @@ class PriditClassifier():
         logger.debug('pridit called with parameters conf={conf} '.format(conf = conf))
 
         logger.info('check conf params ')
+
+        ## Reset Index to Data -----------------------------------------------------
+        Data = Data.reset_index(drop=True)
+
         ## Fill Configuration -----------------------------------------------------
         if (not 'UsingFactor' in conf):
             logger.info('UsingFactor not found in conf using default -> None')
@@ -174,7 +178,7 @@ class PriditClassifier():
             variable = Data[[variableToConvert]].copy()
             variable.columns = ["VariableToConvert"]
             variable.loc[:, 'VariableToConvert'] = variable['VariableToConvert'].astype(str).fillna('NULL')
-
+            
             # Frequency table
             if (len(variable['VariableToConvert'].unique()) < 2):
                 continue

@@ -50,6 +50,9 @@ class Predict():
 
         ## convert columns names to string -----------------------------------------
         Data.columns = Data.columns.astype(str)
+        
+        ## Reset Index to Data -----------------------------------------------------
+        Data = Data.reset_index(drop=True)
 
         logger.debug('fit called with parameters conf={conf} '.format(conf = conf))
         

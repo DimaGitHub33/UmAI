@@ -52,6 +52,9 @@ class Model():
 
         ## convert columns names to string -----------------------------------------
         Data.columns = Data.columns.astype(str)
+        
+        ## Reset Index to Data -----------------------------------------------------
+        Data = Data.reset_index(drop=True)
 
         ## Fill Configuration ------------------------------------------------------
         if (not 'factorVariables' in conf or conf['factorVariables'] == None):
