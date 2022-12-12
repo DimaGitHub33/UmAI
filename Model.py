@@ -286,7 +286,7 @@ class Model():
         GBMGridSearch = RandomizedSearchCV(estimator = LGBEstimator,
                                             param_distributions = parameters,
                                             scoring='accuracy',#'accuracy',,‘neg_mean_absolute_error’,'neg_root_mean_squared_error
-                                            n_iter = 60,##Number of Triels to find the best grid
+                                            n_iter = 120,##Number of Triels to find the best grid
                                             n_jobs = 4,
                                             cv = KF, #k-fold number
                                             refit = True,
@@ -304,7 +304,9 @@ class Model():
         
         ### Saving the features name ------------------------------------------
         GBMModel.feature_names = list(YMCVariables)
-        
+        GBMModel.NameColumnsOfDataInModel =  list(map(lambda x: x.replace('_MeanNumericYMC', '').replace('_MeanFactorYMC', '').replace('_MedianFactorYMC', ''), GBMModel.feature_names))
+        NameColumnsOfDataInModel = GBMModel.NameColumnsOfDataInModel 
+
         ## Logistic Regression ------------------------------------------------
         logisticRegressionModel = LogisticRegression(max_iter=1000).fit(XTrain.astype(float), YTrain)    
 
@@ -360,7 +362,8 @@ class Model():
                     minY,
                     logisticRegressionModel,
                     predictionsDictionary,
-                    CreateModelDate], f)
+                    CreateModelDate,
+                    NameColumnsOfDataInModel], f)
 
         f.close()
 

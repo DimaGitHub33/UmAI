@@ -29,14 +29,14 @@ Data.columns = Data.columns.astype(str)
 ## Creating the NumericVariablesOrder
 NumericVariablesOrder = pd.DataFrame()
 for col in Data.columns:
-    if (np.abs(np.corrcoef(Data.loc[:,col],YTrain)[0,1])<=0.05):
+    if (np.abs(np.corrcoef(Data.loc[:,col],YTrain)[0,1])<=0.0005):
         Data = Data.drop(col,axis=1)
         continue
     Row = pd.DataFrame(data={'Variable': col,
                              'Order': np.where(np.corrcoef(Data.loc[:,col],YTrain)[0,1]>=0,1,0)}, index=[0])
     print(np.corrcoef(Data.loc[:,col],YTrain)[0,1])
     NumericVariablesOrder = pd.concat([NumericVariablesOrder,Row])
-
+#NumericVariablesOrder = None
 ## Creating the configuration
 conf = {
     #'UsingFacotr': 'OnlyVariables',  ##Both, OnlyVariables, None

@@ -316,8 +316,11 @@ from sklearn.ensemble import IsolationForest
 dataHealth = pd.read_csv("/Users/dhhazanov/Downloads/Eli_data_health.csv")
 dataHealth = pd.DataFrame(dataHealth)
 
-makeClassificationX = dataHealth.drop('GIL',axis = 1)
-makeClassificationY = np.where(dataHealth['GIL'] >= dataHealth['GIL'].mean(),1,0)
+# makeClassificationX = dataHealth.drop('GIL',axis = 1)
+# makeClassificationY = np.where(dataHealth['GIL'] >= dataHealth['GIL'].mean(),1,0) 
+makeClassificationX = dataHealth.drop('HAVE_HAKIRA',axis = 1)
+makeClassificationY = dataHealth['HAVE_HAKIRA'].fillna(0)
+
 XTrain, XTest, YTrain, YTest = train_test_split(makeClassificationX, makeClassificationY, test_size=0.3, random_state=0)
 pd.DataFrame(YTrain).describe()
 
@@ -326,20 +329,34 @@ pd.DataFrame(YTrain).describe()
 ## Creating the Data
 Data = pd.DataFrame(XTrain)
 Data.columns = Data.columns.astype(str)
+Data = pd.DataFrame(XTrain).reset_index(drop=False)
+Data = Data.drop(['index','Unnamed: 0','Column1'],axis=1)
 
-clf = IsolationForest(random_state = 0, n_jobs = 4,).fit(Data)
-Scores = np.where(clf.predict(Data)<=0,1,0)##-1 it's outliers and 1 it's inliers
+NumericVariablesOrder = None
+conf = {
+    # 'UsingFacotr': 'OnlyVariables',  ##Both, OnlyVariables, None
+    #'FactorVariables': FactorVariables,  ##List, None
+    #'NumericVariables': NumericVariables,  ##list, None
+    #'FactorVariables': [],  ##List, None
+    #'NumericVariables': [],  ##list, None
+    #'FactorsVariablesOrder': None,  ##List, None
+    'NumericVariablesOrder': NumericVariablesOrder  ##List, None
+}
+
+priditScore,F,firstEigenVector,isolationForestScores = PriditAndIsolationForestClassifier(Data = Data, conf = conf,logger = logger).Predict()
 
 ## 3) Model ----------------------------------------------------------------------------------
 ## Creating the Data 
-Data = pd.DataFrame(XTrain)
-Data['Scores'] = Scores
+Data = pd.DataFrame(XTrain).reset_index(drop=False)
+Data = Data.drop(['index','Unnamed: 0','Column1'],axis=1)
+Data['Scores'] = isolationForestScores+priditScore
 Data['Scores'].describe()
 
 ## Creating the new unsupercised Y and adding the Actual Y
 Data['NewHistoricalYTarget'] = Data['Scores']
+Data['NewHistoricalYTarget'] = np.where(Data['Scores'] >= Data['Scores'].mean(),0,1)
 
-Data['ActualY'] = pd.DataFrame(YTrain)
+Data['ActualY'] = pd.DataFrame(YTrain).fillna(0)
 pd.DataFrame(Data['ActualY'] == Data['NewHistoricalYTarget']).astype(float).describe()
 
 ## Creating the configuration

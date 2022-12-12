@@ -76,7 +76,8 @@ class Predict():
          minY,
          logisticRegressionModel,
          predictionsDictionary,
-         CreateModelDate] = obj
+         CreateModelDate,
+         NameColumnsOfDataInModel] = obj
        
         del f, Path, obj   
 
