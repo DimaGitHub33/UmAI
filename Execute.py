@@ -117,7 +117,11 @@ NewData = pd.concat([pd.DataFrame(XTest),pd.DataFrame({'Y':YTest})],axis=1)
 conf={
     'Path':'/Users/dhhazanov/UmAI/Models/Model.pckl'##Where is the model saved
 }
-Predictions = Predict(NewData,conf,logger).Predict()
+
+PredictClass = Predict(NewData,conf,logger)
+PredictClass.load_model(Path = '/Users/dhhazanov/UmAI/Models/conf2')
+Flag,Difference = PredictClass.pre_predict_validation()
+Predictions = PredictClass.Predict()
 Predictions.describe()
 
 Predictions['ActualY'] = NewData['Y'] 

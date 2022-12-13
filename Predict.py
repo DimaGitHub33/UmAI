@@ -15,7 +15,7 @@ pd.options.display.float_format = '{:.2f}'.format
 
 import shap
 import logging as logger
-
+import json
 #from sklearn.linear_model import LogisticRegression
 #import lifelines
 #from lifelines.utils import k_fold_cross_validation
@@ -43,6 +43,131 @@ class Predict():
 
         self.logger.debug('Predict was created')
 
+
+    ## ------------------------------------------------------------------------------
+    ## ----------------------- load_model function-----------------------------------
+    ## ------------------------------------------------------------------------------
+    """    
+    load_model
+        Args:
+          self:
+            All the configuration of the prediction like where are the models
+            Example:
+                    conf={
+                         'Path':'/Users/dhhazanov/UmAI/Models/Model.pckl' ##Where is the model saved
+                         }
+    
+          Path:
+            Where to write the conf dictionary
+            Example:
+                    '/Users/dhhazanov/UmAI/Models/conf2'
+        Returns:
+          write conf in Path that inputed as json file
+    
+    """
+    def load_model(self,Path):
+        Data = self.Data
+        conf = self.conf
+        logger = self.logger
+
+        ### Save The conf ----------------------------------------------------- 
+        with open(Path, 'w') as convert_file:
+            convert_file.write(json.dumps(conf))
+
+        logger.debug('conf saved in = {path} '.format(path=Path))
+
+
+    ## ------------------------------------------------------------------------------
+    ## ------------------- pre_predict_validation function --------------------------
+    ## ------------------------------------------------------------------------------
+    """    
+    pre_predict_validation
+        Args:
+        Returns:
+          1) Flag (True/False) if the predicted data are all in the trained model data
+          2) What columns in the predicted data are not in the trained model data  
+    """
+    def pre_predict_validation(self):
+        Data = self.Data
+        conf = self.conf
+        logger = self.logger
+
+        ## convert columns names to string -----------------------------------------
+        Data.columns = Data.columns.astype(str)
+        
+        ## Reset Index to Data -----------------------------------------------------
+        #Data = Data.reset_index(drop=True)
+
+        ### Load The Models ------------------------------------------------------- 
+        Path = conf['Path']
+
+        logger.debug('using path from conf , path={path} '.format(path=Path))
+        # Path = Path.replace('Segment', Segment, 1)
+        f = open(Path, 'rb')
+        obj = pickle.load(f)
+        f.close()     
+
+        [factorVariables,
+         numericVariables,
+         YMCFactorDictionaryList,
+         totalYMeanTarget,
+         totalYMedianTarget,
+         YMCDictionaryNumericList,
+         GBMModel,
+         maxY,
+         minY,
+         logisticRegressionModel,
+         predictionsDictionary,
+         CreateModelDate,
+         NameColumnsOfDataInModel] = obj
+
+        del f, Path, obj    
+
+        ### Check if existed in the predicted data the columns in the trained model data --
+        Flag = set(NameColumnsOfDataInModel).issubset(set(Data.columns))##set([1,2,3]).issubset(set([1,2,3,4])) return TRUE
+        Difference = list(set(NameColumnsOfDataInModel).difference(Data.columns))##set([1,2,3,4]).difference([1,2,3]) return 4
+
+        if (Flag == True):
+            logger.debug('All the trained models data columns are in the predicted data')
+        else:
+            logger.debug('{Difference} Not in the trained model data but in the predicted'.format(Difference = Difference))
+
+
+        return Flag,Difference
+        
+ 
+    ## ------------------------------------------------------------------------------
+    ## ---------------------------- Predict function --------------------------------
+    ## ------------------------------------------------------------------------------
+    """    
+    Predict
+        Args:
+        Returns:
+        1) PredictGBM  
+        2) Rank  
+        3) PredictLogisticRegression 
+        4) VariableImportance1 
+        5) VariableImportance2 
+        6) VariableImportance3 
+        7) VariableImportance4 
+        8) VariableImportance5 
+        9) VariableImportance6 
+        10) VariableImportance7
+
+        Example:
+        PredictGBM  Rank  PredictLogisticRegression VariableImportance1 VariableImportance2 VariableImportance3 VariableImportance4 VariableImportance5 VariableImportance6 VariableImportance7
+             0.00     2                       0.00                [11]                [13]                 [9]                [10]                 [1]                 [7]                 [6]
+             0.00     4                       0.00                [11]                [13]                 [9]                 [3]                 [2]                 [5]                 [1]
+             0.00     1                       0.00                [11]                [13]                 [9]                [10]                 [0]                 [3]                 [8]
+             0.00     3                       0.00                [11]                [13]                [10]                 [1]                 [8]                 [3]                [12]
+             0.00     1                       0.00                [11]                [13]                 [9]                [10]                [14]                 [1]                 [6]
+              ...   ...                        ...                 ...                 ...                 ...                 ...                 ...                 ...                 ...
+             1.00     6                       0.99                [11]                [13]                [10]                 [9]                 [0]                 [8]                 [2]
+             0.00     3                       0.00                [11]                [13]                [10]                 [0]                 [1]                 [5]                 [2]
+             1.00    10                       1.00                [11]                [13]                 [9]                 [3]                 [5]                 [6]                [12]
+             0.00     2                       0.00                [11]                [13]                 [9]                [10]                 [1]                 [3]                 [5]
+             0.00     4                       0.01                [11]                 [9]                [13]                [10]                [12]                 [1]                 [0]
+    """
     def Predict(self):
         Data = self.Data
         conf = self.conf
@@ -139,9 +264,7 @@ class Predict():
         del numericYMC
 
 
-        ### -----------------------------------------------------------------------
-        ### ----------------------- Predict ---------------------------------------
-        ### -----------------------------------------------------------------------
+        ### Predict -------------------------------------------------
         ## GBM ------------------------------------------------------
         XTest = Data.loc[:, GBMModel.feature_names].astype(float)
         ##Data['PredictGBM'] = GBMModel.predict(XTest)for GBM regressor
