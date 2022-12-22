@@ -119,7 +119,7 @@ conf={
 }
 
 PredictClass = Predict(NewData,conf,logger)
-PredictClass.load_model(Path = '/Users/dhhazanov/UmAI/Models/conf2')
+PredictClass.load_model(Path = '/Users/dhhazanov/UmAI/Models/conf2')##Path is where to write the configuration
 Flag,Difference = PredictClass.pre_predict_validation()
 Predictions = PredictClass.Predict()
 Predictions.describe()

@@ -9,11 +9,12 @@ import pandas as pd
 from scipy import stats
 from sklearn.model_selection import RandomizedSearchCV, KFold
 from sklearn.linear_model import LogisticRegression
-
+from sklearn.linear_model import QuantileRegressor
 from Functions import Ranks_Dictionary, RJitter, FunFactorYMC, FunNumericYMC
 pd.options.display.float_format = '{:.2f}'.format
 import warnings
 import logging as logger
+import statsmodels.formula.api as smf
 
 #from sklearn.linear_model import LogisticRegression
 #import lifelines
@@ -32,7 +33,7 @@ import logging as logger
 ## ------------------------------------------------------------------------------------------------
 ## ----------------------------------------- Model ------------------------------------------------
 ## ------------------------------------------------------------------------------------------------
-class Model():
+class NumericModel():
     ## Ranks Dictionary -----------------------------------------------------------
     def __init__(self, Data, conf, logger):
         self.Data = Data
@@ -85,11 +86,12 @@ class Model():
 
         logger.info('Target  -> {Target}'.format(Target=Target))
         try:
+            
             logger.info('dropping target {Target}'.format(Target=Target))
             Data = Data.drop(conf['Target'], axis=1)
         except Exception:
 
-            logger.error("Target column is not exist")
+            logger.info("Target column is not exist")
 
         ## Drop ot Select columns from Data ----------------------------------------
         if (len(conf['ColumnSelectionType']) != 0 and len(conf['Keep']) != 0):
@@ -238,16 +240,14 @@ class Model():
         del numericYMC
 
         ### -----------------------------------------------------------------------
-        ### ----------------------- Target Model ----------------------------------
+        ### ----------------------- Light GBM Model -------------------------------
         ### -----------------------------------------------------------------------
-        ### Taking the YMC_Suspicious variables -----------------------------------
+        ### Taking the variables -----------------------------------
         YMCVariables = Data.columns[["_MeanNumericYMC" in i or "_MeanFactorYMC" in i or "_MedianFactorYMC" in i for i in Data.columns]]
         #YMCVariables = (*YMCVariables, *numericVariables)
     
         ### Creating Train Data for model -------------------------------------
         XTrain = Data.loc[:, YMCVariables].astype(float)
-        #ColumnsMean = XTrain.mean()
-        #XTrain = XTrain.fillna(ColumnsMean)
         YTrain = Data['Target']
 
         ### Removing null from the model ---------------------
@@ -256,10 +256,10 @@ class Model():
 
         ### Defining the model ------------------------------------------------
         # objective = 'multiclass'
-        # LGBEstimator = LightGBM.LGBMRegressor(boosting_type='gbdt',
-        #                                       objective='regression')
-        LGBEstimator = LightGBM.LGBMClassifier(boosting_type='gbdt',
-                                               objective='binary')
+        LGBEstimator = LightGBM.LGBMRegressor(boosting_type='gbdt',
+                                              objective='regression')
+        # LGBEstimator = LightGBM.LGBMClassifier(boosting_type='gbdt',
+        #                                        objective='binary')
 
         ### Defining the Grid -------------------------------------------------
         # parameters = {'num_leaves':[20,40,60,80,100], 
@@ -285,7 +285,7 @@ class Model():
         ### Run the model -----------------------------------------------------
         GBMGridSearch = RandomizedSearchCV(estimator = LGBEstimator,
                                             param_distributions = parameters,
-                                            scoring='accuracy',#'accuracy',,‘neg_mean_absolute_error’,'neg_root_mean_squared_error
+                                            scoring='neg_root_mean_squared_error',#'accuracy',,‘neg_mean_absolute_error’,'neg_root_mean_squared_error
                                             n_iter = 120,##Number of Triels to find the best grid
                                             n_jobs = 4,
                                             cv = KF, #k-fold number
@@ -307,12 +307,6 @@ class Model():
         GBMModel.NameColumnsOfDataInModel =  list(map(lambda x: x.replace('_MeanNumericYMC', '').replace('_MeanFactorYMC', '').replace('_MedianFactorYMC', ''), GBMModel.feature_names))
         NameColumnsOfDataInModel = GBMModel.NameColumnsOfDataInModel 
 
-        ## Logistic Regression ------------------------------------------------
-        logisticRegressionModel = LogisticRegression(max_iter=1000).fit(XTrain.astype(float), YTrain)    
-
-        ##Output the prediction 
-        Data['PredictLogisticRegression'] = logisticRegressionModel.predict_proba(XTrain.astype(float))[:,1]
-
         ## Maximum and Minimum Y ----------------------------------------------
         maxY = np.max(YTrain)
         minY = np.min(YTrain)
@@ -328,8 +322,8 @@ class Model():
         
         ## Predictions ----------------------------------------------------
         XTrain = Data.loc[:,GBMModel.feature_names].astype(float)
-        ##Data['PredictGBM'] = GBMModel.predict(XTrain)for GBM regressor
-        Data['PredictGBM'] = GBMModel.predict_proba(XTrain)[:,1]
+        Data['PredictGBM'] = GBMModel.predict(XTrain)##for GBM regressor
+        ##Data['PredictGBM'] = GBMModel.predict_proba(XTrain)[:,1]
         Data['PredictGBM'] = Data['PredictGBM'].astype(float)
         Data['PredictGBM'] = np.where(Data['PredictGBM']>=maxY,maxY,Data['PredictGBM'])
         Data['PredictGBM'] = np.where(Data['PredictGBM']<=minY,minY,Data['PredictGBM'])
@@ -341,6 +335,124 @@ class Model():
                                                                   closed='left')
         # Convert Each prediction value to rank
         Data['Rank'] = predictionsDictionary.loc[Data['PredictGBM']]['rank'].reset_index(drop=True)
+
+
+        ### -----------------------------------------------------------------------
+        ### ----------------------- Calibration Model -----------------------------
+        ### -----------------------------------------------------------------------
+        ### Taking the variables -----------------------------------
+        YMCVariables = Data.columns[["_MeanNumericYMC" in i or "_MeanFactorYMC" in i or "_MedianFactorYMC" in i for i in Data.columns]]
+
+        ### Creating Train Data for model -------------------------------------
+        XTrain = Data.loc[:, YMCVariables].astype(float)
+        YTrain = Data['Target']
+
+        ### Removing null from the model ---------------------
+        XTrain = XTrain.loc[~np.isnan(YTrain), :].reset_index(drop=True)
+        YTrain = YTrain.loc[~np.isnan(YTrain)].reset_index(drop=True)
+
+        ### Defining the model ------------------------------------------------
+        LGBEstimator = LightGBM.LGBMRegressor(boosting_type='gbdt',
+                                              alpha=0.5,
+                                              metric = 'quantile',
+                                              objective='quantile')
+
+        ### Defining the Grid -------------------------------------------------
+        parameters = dict(num_leaves = stats.randint(10,500),
+                          #panalty = ('l1','l2'),
+                          #C = stats.uniform(0, 1),
+                          n_estimators = stats.randint(10,400),
+                          min_child_samples = stats.randint(0,20),
+                          max_depth = stats.randint(1,7),
+                          learning_rate = stats.uniform(0,1),
+                          reg_alpha = stats.uniform(0,1))
+
+        ## K-Fold Cross-Valisdation -------------------------------------------
+        KF = KFold(n_splits = 5, shuffle = True, random_state=4)
+
+        ### Run the model -----------------------------------------------------
+        GBMGridSearch = RandomizedSearchCV(estimator = LGBEstimator,
+                                            param_distributions = parameters,
+                                            scoring= 'neg_mean_absolute_error',#'accuracy',,‘neg_mean_absolute_error’,'neg_root_mean_squared_error
+                                            n_iter = 120,##Number of Triels to find the best grid
+                                            n_jobs = 4,
+                                            cv = KF, #k-fold number
+                                            refit = True,
+                                            random_state = 4
+                                            )
+        QrModel = GBMGridSearch.fit(X = XTrain, y = YTrain)
+  
+        ### Fitting the best model --------------------------------------------
+        QrModel = QrModel.best_estimator_.fit(X = XTrain, y = YTrain)
+
+        ## Prediction for calibration------------------------------------------
+        Data['PredictQuantile'] = QrModel.predict(XTrain)
+        #Data['PredictQuantile'] = np.maximum(1, Data['PredictQuantile'])
+        
+        ##LTV Upper Cut Point
+        UpperBorder = np.quantile(Data['PredictQuantile'],0.999)
+        UpperValue = np.mean(Data.loc[Data['PredictQuantile'] >= UpperBorder,:]['PredictQuantile'])
+        Data['PredictQuantile'] = np.where(Data['PredictQuantile'] >= UpperBorder, UpperValue, Data['PredictQuantile'])
+                
+        # Calibration ----------------------------------------------------------
+        pred = Data['PredictQuantile'][Data['PredictQuantile']<np.quantile(Data['PredictQuantile'],0.9)]
+        predTop = Data['PredictQuantile'][Data['PredictQuantile']>=np.quantile(Data['PredictQuantile'],0.9)]
+        
+        if (len(pred)==0 or len(predTop)==0):
+            Data['PredictQuantile'] = Data['PredictQuantile']+np.random.uniform(0, 0.001, len(Data['PredictQuantile']))
+            Data['PredictQuantile'] = Data['PredictQuantile']+np.random.uniform(0, 0.00001, len(Data['PredictQuantile']))
+            Data['PredictQuantile'] = Data['PredictQuantile']+np.random.uniform(0, 0.000001, len(Data['PredictQuantile']))
+            Data['PredictQuantile'] = Data['PredictQuantile']+np.random.uniform(0, 0.0000001, len(Data['PredictQuantile']))
+            Data['PredictQuantile'] = Data['PredictQuantile']+np.random.uniform(0, 0.0000001, len(Data['PredictQuantile']))
+            Data['PredictQuantile'] = Data['PredictQuantile']+np.random.uniform(0, 0.0000001, len(Data['PredictQuantile']))
+
+            pred = Data['PredictQuantile'][Data['PredictQuantile']<np.quantile(Data['PredictQuantile'],0.9)]
+            predTop = Data['PredictQuantile'][Data['PredictQuantile']>=np.quantile(Data['PredictQuantile'],0.9)]        
+    
+        Calibration1 = Ranks_Dictionary(pred,max(10,round(len(pred)/700)))
+        Calibration2 = Ranks_Dictionary(predTop,max(5,round(len(predTop)/400)))
+        
+        Calibration1.iloc[len(Calibration1)-1,1] = Calibration2.loc[Calibration2['rank']==1,'value'][0]
+        Calibration2 = Calibration2.loc[Calibration2['rank']>1,:]   
+        
+        Calibration = pd.concat([Calibration1, Calibration2]) 
+        Calibration['rank'] = np.linspace(start=1,stop=len(Calibration),num=len(Calibration),dtype=int)
+        
+        # Creating interval index for fast location 
+        Calibration.index = pd.IntervalIndex.from_arrays(Calibration['lag_value'],
+                                                        Calibration['value'],
+                                                        closed='left')
+        
+        # Convert Each value in variable to rank
+        Data['PredictedRank'] = Calibration.loc[Data['PredictQuantile']]['rank'].reset_index(drop=True)
+        
+        
+        a = Data.groupby('PredictedRank').agg(mean = ('PredictQuantile', 'mean'),length = ('PredictQuantile', 'count')).reset_index()
+        b = Data.groupby('PredictedRank').agg(mean = ('Target', 'mean'),length = ('PredictQuantile', 'count')).reset_index()
+        a.columns = ["Ranks","PredictedMean","PredictedLength"]
+        b.columns = ["Ranks","YMean","YLength"]
+
+        c = pd.merge(a, b, on='Ranks', how='left')
+        c['Diff'] = np.abs(100*(c['PredictedMean']-c['YMean'])/c['YMean'])
+        
+        CalibrationTable = pd.DataFrame(dict(rank=c['Ranks'],
+                                            Calibration=c['YMean']/c['PredictedMean'],
+                                            YMean=c['YMean'],
+                                            length=c['YLength']))
+        Calibration = pd.merge(Calibration,CalibrationTable,on='rank', how='left')
+        Calibration.loc[Calibration['Calibration'] == float("inf"),'Calibration'] = 1
+        Calibration.loc[np.isnan(Calibration['Calibration']),'Calibration'] = np.median(Calibration['Calibration'].dropna())
+
+        del a,b,c,CalibrationTable,pred,predTop
+
+        ###Second calibration (Smoothing the calibration)
+        Calibration['Calibration2'] = Calibration['Calibration'].rolling(window=3, min_periods=1).mean()
+        Calibration.index = pd.IntervalIndex.from_arrays(Calibration['lag_value'],
+                                                Calibration['value'],
+                                                closed='left')
+        Data['Calibration'] = Calibration.loc[Data['PredictQuantile']]['Calibration'].reset_index(drop=True)
+        Data['PredictCalibrated'] = Data['Calibration'] * Data['PredictQuantile']
+
 
         ### Current Time -------------------------------------------------------
         now = datetime.now() 
@@ -357,11 +469,9 @@ class Model():
                     totalYMeanTarget,
                     totalYMedianTarget,
                     YMCDictionaryNumericList,
-                    GBMModel,
-                    maxY,
-                    minY,
-                    logisticRegressionModel,
+                    GBMModel, maxY, minY,
                     predictionsDictionary,
+                    QrModel, UpperBorder, UpperValue, Calibration,
                     CreateModelDate,
                     NameColumnsOfDataInModel], f)
 
@@ -370,78 +480,25 @@ class Model():
         ### Output ----------------------------------------------------------------
         Output = pd.DataFrame(data={'Target': Data['Target'],
                                     'PredictGBM': Data['PredictGBM'],
-                                    'PredictLogisticRegression': Data['PredictLogisticRegression'],
+                                    'PredictQuantile': Data['PredictQuantile'],
+                                    'PredictCalibrated': Data['PredictCalibrated'],
                                     'Rank': Data['Rank']})
 
         return Output
 
-#Check The Model --------------------------------------------------------  
-# from sklearn.datasets import make_classification
-# makeClassificationX,makeClassificationY = make_classification(n_samples = 5000,class_sep = 4,random_state=0)
-# Data = pd.DataFrame(makeClassificationX)
-# Data['Y'] = pd.DataFrame(makeClassificationY)
-
-# conf={
-#     'Path':'/Users/dhhazanov/UmAI/Models/Model.pckl',
-#     'Target':'Y',
-#     'ColumnSelectionType': 'Drop',#Drop,Keep
-#     'Keep': None,#['GENDER', 'FAMILY_STATUS','GIL'],
-#     'Drop': ['GIL','ISUK_MERAKEZ','FAMILY_STATUS','ISHUN','M_CHOD_TASHLOM_BR'],#None,
-#     'ModelType': None #GBM,Linear regression,...
-# }
-# RunModel = Model(Data,conf,logger)
-# Output = RunModel.fit()
-
-# Output.groupby('Target')['PredictGBM'].apply(np.mean).reset_index()
-# Output.groupby('Rank')['PredictGBM'].apply(np.mean).reset_index()
-# Output.groupby('Rank')['Target'].apply(np.mean).reset_index()
-# Output.groupby('Rank')['PredictLogisticRegression'].apply(np.mean).reset_index()
-
-#Check The Model 2 --------------------------------------------------------  
-# Data = pd.read_csv('/Users/dhhazanov/UmAI/Eli_data_health.csv')
-# Data.head()
-# conf={
-#     'Path':'/Users/dhhazanov/UmAI/Models/Model.pckl',
-#     'Target':'Y',
-#     'ColumnSelectionType': 'Drop',#Drop,Keep
-#     'Keep': None,#['GENDER', 'FAMILY_STATUS','GIL'],
-#     'Drop': ['GIL','Unnamed: 0'],#None,
-#     'ModelType': None #GBM,Linear regression,...
-# }
-# Data['Y'] = np.where(Data['GIL'] >= Data['GIL'].mean(),1,0)
-
-# RunModel = Model(Data,conf,logger)
-# Output = RunModel.fit()         
-
-
-# Output.groupby('Target')['PredictGBM'].apply(np.mean).reset_index()
-# Output.groupby('Rank')['PredictGBM'].apply(np.mean).reset_index()
-# Output.groupby('Rank')['Target'].apply(np.mean).reset_index()
-# Output.groupby('Rank')['PredictLogisticRegression'].apply(np.mean).reset_index() 
-
 
 ## Read Data from local memory ---------------------------------------------------------------------------------
-# Data = pd.read_csv('/Users/dhhazanov/UmAI/ppp.parquet_1_for_model.csv')
-# Data = Data.head(1000)
-# Data['NewHistoricalYTarget'] = np.where(Data['GIL'] >= Data['GIL'].mean(),1,0)
+# Data = pd.read_csv('/Users/dhhazanov/UmAI/Data/insurance_claims.csv')
 # conf={
 #     'Path':'/Users/dhhazanov/UmAI/Models/Model.pckl',
-#     'Target':'NewHistoricalYTarget',
+#     'Target':'total_claim_amount',
 #     'ColumnSelectionType': 'Drop',#Drop,Keep
 #     'Keep': None,#['GENDER', 'FAMILY_STATUS','GIL'],
 #     'Drop': ['priditScore'], 
 #     'ModelType': None #GBM,Linear regression,...
 # }
-# # conf = {'Target': 'NewHistoricalYTarget',
-# #  'ColumnSelectionType': 'Drop', 
-# #  'Keep': None, 
-# #  'Drop': ['priditScore'], 
-# #  'ModelType': 'GBM', 
-# #  'DataFileType': 'parquet', 
-# #  'DataPath': 'C:/git/Vehicle_suspicious_score_prod/uploads//Umai/Admin-/0/ppp.parquet_1_for_model.gzip', 
-# #  'ScorePath': 'C:/git/Vehicle_suspicious_score_prod/uploads//Umai/Admin-/0/ppp.parquet_1_PriditScore'}
+
 # import re
 # Data = Data.rename(columns = lambda x:re.sub('[^A-Za-z0-9_]+', '', x))  
-# RunModel = Model(Data,conf,logger)
+# RunModel = NumericModel(Data,conf,logger)
 # Output = RunModel.fit()    
-# # Data = pd.read_parquet(r'C:\github\Utilities\machine_learning_examples\ppp_v1.parquet.gzip', engine='pyarrow')

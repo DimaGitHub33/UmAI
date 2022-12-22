@@ -34,7 +34,7 @@ import json
 ## ----------------------------------------- Predict ----------------------------------------------
 ## ------------------------------------------------------------------------------------------------
 
-class Predict():
+class NumericPredict():
     ## Ranks Dictionary ----------------------------------------------------------
     def __init__(self, Data, conf, logger):
         self.Data = Data
@@ -108,18 +108,16 @@ class Predict():
         f.close()     
 
         [factorVariables,
-         numericVariables,
-         YMCFactorDictionaryList,
-         totalYMeanTarget,
-         totalYMedianTarget,
-         YMCDictionaryNumericList,
-         GBMModel,
-         maxY,
-         minY,
-         logisticRegressionModel,
-         predictionsDictionary,
-         CreateModelDate,
-         NameColumnsOfDataInModel] = obj
+        numericVariables,
+        YMCFactorDictionaryList,
+        totalYMeanTarget,
+        totalYMedianTarget,
+        YMCDictionaryNumericList,
+        GBMModel, maxY, minY,
+        predictionsDictionary,
+        QrModel, UpperBorder, UpperValue, Calibration,
+        CreateModelDate,
+        NameColumnsOfDataInModel] = obj
 
         del f, Path, obj    
 
@@ -191,18 +189,16 @@ class Predict():
         f.close()
 
         [factorVariables,
-         numericVariables,
-         YMCFactorDictionaryList,
-         totalYMeanTarget,
-         totalYMedianTarget,
-         YMCDictionaryNumericList,
-         GBMModel,
-         maxY,
-         minY,
-         logisticRegressionModel,
-         predictionsDictionary,
-         CreateModelDate,
-         NameColumnsOfDataInModel] = obj
+        numericVariables,
+        YMCFactorDictionaryList,
+        totalYMeanTarget,
+        totalYMedianTarget,
+        YMCDictionaryNumericList,
+        GBMModel, maxY, minY,
+        predictionsDictionary,
+        QrModel, UpperBorder, UpperValue, Calibration,
+        CreateModelDate,
+        NameColumnsOfDataInModel] = obj
        
         del f, Path, obj   
 
@@ -263,22 +259,34 @@ class Predict():
         ### Delete all temporary Variables ----------------------------------------
         del numericYMC
 
-
-        ### Predict -------------------------------------------------
-        ## GBM ------------------------------------------------------
+        ## ------------------------------------------------------------------------
+        ### GBM Predict -----------------------------------------------------------
+        ## ------------------------------------------------------------------------
         XTest = Data.loc[:, GBMModel.feature_names].astype(float)
-        ##Data['PredictGBM'] = GBMModel.predict(XTest)for GBM regressor
-        Data['PredictGBM'] = GBMModel.predict_proba(XTest)[:,1]
+        Data['PredictGBM'] = GBMModel.predict(XTest)##for GBM regressor
+        ##Data['PredictGBM'] = GBMModel.predict_proba(XTest)[:,1]
         Data['PredictGBM'] = Data['PredictGBM'].astype(float)
         Data['PredictGBM'] = np.where(Data['PredictGBM'] >= maxY, maxY, Data['PredictGBM'])
         Data['PredictGBM'] = np.where(Data['PredictGBM'] <= minY, minY, Data['PredictGBM'])
 
-        ## Ranks ----------------------------------------------------
+        ## Ranks ------------------------------------------------------------------
         # Convert Each prediction value to rank
         Data['Rank'] = predictionsDictionary.loc[Data['PredictGBM']]['rank'].reset_index(drop=True)
 
-        ## Logistic Regression ------------------------------------
-        Data['PredictLogisticRegression'] = logisticRegressionModel.predict_proba(XTest.astype(float))[:,1]
+
+        ## ------------------------------------------------------------------------
+        ### Calibration Predict -------------------------------------------------
+        ## ------------------------------------------------------------------------
+        Data['PredictQuantile'] = QrModel.predict(XTest)
+        #Data['PredictQuantile'] = np.maximum(1,Data['PredictQuantile'])
+        
+        ##LTV Upper Cut Point
+        Data['PredictQuantile'] = np.where(Data['PredictQuantile']>=UpperBorder, UpperValue, Data['PredictQuantile'])
+           
+        # Calibration ----------------------------------------------------------
+        Data['Calibration'] = Calibration.loc[Data['PredictQuantile']]['Calibration'].reset_index(drop=True)
+        Data['PredictCalibrated'] = Data['Calibration'] * Data['PredictQuantile']
+
 
         ### Variable Explainer - ----------------------------------
         explainer = shap.Explainer(GBMModel, Data.loc[:, GBMModel.feature_names].astype(float), feature_names=GBMModel.feature_names)  # Instead of Explainer put TreeExplainer if the model is tree based
@@ -317,7 +325,8 @@ class Predict():
         ### Output ----------------------------------------------------------------
         Output = pd.DataFrame(data={'PredictGBM': Data['PredictGBM'],
                                     'Rank': Data['Rank'],
-                                    'PredictLogisticRegression': Data['PredictLogisticRegression'],
+                                    'PredictQuantile': Data['PredictQuantile'],
+                                    'PredictCalibrated': Data['PredictCalibrated'],
                                     'VariableImportance1': Data['VariableImportance1'],
                                     'VariableImportance2': Data['VariableImportance2'],
                                     'VariableImportance3': Data['VariableImportance3'],
@@ -328,45 +337,10 @@ class Predict():
 
         return Output
 
-#Check The Model --------------------------------------------------------  
-# from sklearn.datasets import make_classification
-# makeClassificationX,makeClassificationY = make_classification(n_samples=10000,class_sep = 4,random_state=0)
-# Data = pd.DataFrame(makeClassificationX)
-# Data['Y'] = pd.DataFrame(makeClassificationY)
-
+# #Check The Model --------------------------------------------------------  
+# Data = pd.read_csv('/Users/dhhazanov/UmAI/Data/insurance_claims.csv')
 # conf={
-#     'Path':'/Users/dhhazanov/UmAI/Models/Model.pckl'
-# }
-# Predictions = Predict(Data,conf,logger).Predict()
-# Predictions.describe()
-
-# Predictions['ActualY'] = pd.DataFrame(makeClassificationY)
-# Predictions.groupby('ActualY')['PredictGBM'].apply(np.mean).reset_index()
-# Predictions.groupby('Rank')['PredictGBM'].apply(np.mean).reset_index()
-# Predictions.groupby('Rank')['ActualY'].apply(np.mean).reset_index()
-# Predictions.groupby('Rank')['PredictLogisticRegression'].apply(np.mean).reset_index()
-
-
-#Check The Model 2 --------------------------------------------------------  
-# Data = pd.read_csv('/Users/dhhazanov/UmAI/Eli_data_health.csv')
-# conf={
-#     'Path':'/Users/dhhazanov/UmAI/Models/Model.pckl'
-# }
-# Predictions = Predict(Data,conf,logger).Predict()
-# Predictions.describe()
-
-# Predictions['ActualY'] = np.where(Data['GIL'] >= Data['GIL'].mean(),1,0)
-# Predictions.groupby('ActualY')['PredictGBM'].apply(np.mean).reset_index()
-# Predictions.groupby('Rank')['PredictGBM'].apply(np.mean).reset_index()
-# Predictions.groupby('Rank')['ActualY'].apply(np.mean).reset_index()
-# Predictions.groupby('Rank')['PredictLogisticRegression'].apply(np.mean).reset_index()
-
-
-#Check The Model 3 --------------------------------------------------------  
-# Data = pd.read_csv('/Users/dhhazanov/UmAI/ppp.parquet_1_test_for_predict.csv')
-# Data['Y'] = np.where(Data['GIL'] >= Data['GIL'].mean(),1,0)
-# conf={
-#     'Path':'/Users/dhhazanov/UmAI/Models/Model.pckl'
+#      'Path':'/Users/dhhazanov/UmAI/Models/Model.pckl'
 # }
 # import re
 # Data = Data.rename(columns = lambda x:re.sub('[^A-Za-z0-9_]+', '', x))  
