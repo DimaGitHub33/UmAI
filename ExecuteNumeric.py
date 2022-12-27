@@ -1,15 +1,11 @@
 ## 0) Import Packages -------------------------------------------------------------------------------
 import pandas as pd
 import numpy as np
-import pyarrow.parquet as pq
 from Pridit import PriditClassifier
 from Functions import Ranks_Dictionary, RJitter, FunFactorYMC, FunNumericYMC
 from NumericModel import NumericModel
 from NumericPredict import NumericPredict
 import logging as logger
-
-from sklearn.datasets import load_breast_cancer
-breast_cancer_x,breast_cancer_y = load_breast_cancer(return_X_y=True)
 
 from sklearn.model_selection import train_test_split
 from sklearn.datasets import make_regression
@@ -17,7 +13,9 @@ from sklearn.datasets import make_regression
 ## 1) Load Data -------------------------------------------------------------------------------------
 makeRegressionX,makeRegressionY = make_regression(n_samples=40000,n_features = 10)
 XTrain, XTest, YTrain, YTest = train_test_split(makeRegressionX, makeRegressionY, test_size=0.3, random_state=0)
-                        
+
+#% --------------------------------------                 
+#pd.DataFrame(YTrain).plot.hist(grid=True, bins=20, rwidth=0.9,color='#607c8e')
 
 ## 2) Model ----------------------------------------------------------------------------------
 ## Creating the Data 
@@ -26,7 +24,7 @@ Data['ActualY'] = pd.DataFrame(YTrain)
 
 ## Creating the configuration
 conf={
-    'Path':'/Users/dhhazanov/UmAI/Models/Model.pckl',
+    'Path':'/Users/dhhazanov/UmAI/Models/NumericModel.pckl',
     'Target':'ActualY',
     'ColumnSelectionType': 'Drop',#Drop,Keep
     'Keep': None,#['GENDER', 'FAMILY_STATUS','GIL'],
@@ -54,11 +52,11 @@ Check.describe()
 NewData = pd.concat([pd.DataFrame(XTest),pd.DataFrame({'Y':YTest})],axis=1)
 
 conf={
-    'Path':'/Users/dhhazanov/UmAI/Models/Model.pckl'##Where is the model saved
+    'Path':'/Users/dhhazanov/UmAI/Models/NumericModel.pckl'##Where is the model saved
 }
 
 PredictClass = NumericPredict(NewData,conf,logger)
-PredictClass.load_model(Path = '/Users/dhhazanov/UmAI/Models/conf2')##Path is where to write the configuration
+PredictClass.load_model(Path = '/Users/dhhazanov/UmAI/Models/Numericconf')##Path is where to write the configuration
 Flag,Difference = PredictClass.pre_predict_validation()
 Predictions = PredictClass.Predict()
 Predictions.describe()

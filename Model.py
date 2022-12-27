@@ -89,7 +89,7 @@ class Model():
             Data = Data.drop(conf['Target'], axis=1)
         except Exception:
 
-            logger.error("Target column is not exist")
+            logger.info("Target column is not exist")
 
         ## Drop ot Select columns from Data ----------------------------------------
         if (len(conf['ColumnSelectionType']) != 0 and len(conf['Keep']) != 0):
@@ -98,19 +98,19 @@ class Model():
                 Data = Data.loc[:, np.intersect1d(Data.columns.values, conf['Keep'])]
                 logger.info('Selected chosen columns , columns={columns}'.format(columns=Data.columns))
             except Exception:
-                logger.error("Didn't selected anything")
+                logger.info("Didn't selected anything")
                 raise
 
         if (len(conf['ColumnSelectionType']) != 0 and len(conf['Drop']) != 0):
             try:
                 if(len(np.intersect1d(Data.columns.values,conf['Drop']))==0):
-                    logger.error("Didn't drop any columns")         
+                    logger.info("Didn't drop any columns")         
                 else:
                     logger.info('dropping columns using , conf[\'Drop\']={drop}'.format(drop=conf['Drop']))
                     Data = Data.drop(list(np.intersect1d(Data.columns.values, conf['Drop'])), axis=1)
                     logger.info('Droped selected columns')
             except Exception:           
-                logger.error("Didn't drop any columns")      
+                logger.info("Didn't drop any columns")      
                 raise  
         
         ## Insert Target columns -----------------------------------------------------
@@ -363,7 +363,8 @@ class Model():
                     logisticRegressionModel,
                     predictionsDictionary,
                     CreateModelDate,
-                    NameColumnsOfDataInModel], f)
+                    NameColumnsOfDataInModel,
+                    conf], f)
 
         f.close()
 

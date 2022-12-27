@@ -44,7 +44,7 @@ class PriditClassifier():
           FactorsVariablesOrder:
             data frame of all the factor variables and their levels order
             Example:
-                     Variable               Level  Order
+                     Variable               Order  Level  
                        GENDER                   ז      0
                        GENDER                   נ      1
                 FAMILY_STATUS                   נ      0
@@ -174,7 +174,7 @@ class PriditClassifier():
         ## F calculation for Factor variables  ------------------------------------
         F = pd.DataFrame()
         for variableToConvert in factorVariables:
-            # print(VariableToConvert)
+            # print(variableToConvert)
             variable = Data[[variableToConvert]].copy()
             variable.columns = ["VariableToConvert"]
             variable.loc[:, 'VariableToConvert'] = variable['VariableToConvert'].astype(str).fillna('NULL')
@@ -194,7 +194,7 @@ class PriditClassifier():
                 if len(Order) == 0:
                     frequencyTable = frequencyTable.sort_values('Frequency', ascending=True)
                 else:
-                    frequencyTable = frequencyTable.join(Order, on=variableToConvert, how='left')
+                    frequencyTable = frequencyTable.join(Order, on = variableToConvert, how='left')
                     frequencyTable['Order'] = frequencyTable['Order'].fillna(np.mean(frequencyTable['Order']))
                     frequencyTable = frequencyTable.sort_values('Order', ascending=True)
 

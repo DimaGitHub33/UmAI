@@ -119,7 +119,8 @@ class Predict():
          logisticRegressionModel,
          predictionsDictionary,
          CreateModelDate,
-         NameColumnsOfDataInModel] = obj
+         NameColumnsOfDataInModel,
+         conf] = obj
 
         del f, Path, obj    
 
@@ -202,7 +203,8 @@ class Predict():
          logisticRegressionModel,
          predictionsDictionary,
          CreateModelDate,
-         NameColumnsOfDataInModel] = obj
+         NameColumnsOfDataInModel,
+         conf] = obj
        
         del f, Path, obj   
 

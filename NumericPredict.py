@@ -1,4 +1,3 @@
-
 import os
 import pickle
 from datetime import datetime
@@ -117,7 +116,8 @@ class NumericPredict():
         predictionsDictionary,
         QrModel, UpperBorder, UpperValue, Calibration,
         CreateModelDate,
-        NameColumnsOfDataInModel] = obj
+        NameColumnsOfDataInModel,
+        conf] = obj
 
         del f, Path, obj    
 
@@ -153,18 +153,18 @@ class NumericPredict():
         10) VariableImportance7
 
         Example:
-        PredictGBM  Rank  PredictLogisticRegression VariableImportance1 VariableImportance2 VariableImportance3 VariableImportance4 VariableImportance5 VariableImportance6 VariableImportance7
-             0.00     2                       0.00                [11]                [13]                 [9]                [10]                 [1]                 [7]                 [6]
-             0.00     4                       0.00                [11]                [13]                 [9]                 [3]                 [2]                 [5]                 [1]
-             0.00     1                       0.00                [11]                [13]                 [9]                [10]                 [0]                 [3]                 [8]
-             0.00     3                       0.00                [11]                [13]                [10]                 [1]                 [8]                 [3]                [12]
-             0.00     1                       0.00                [11]                [13]                 [9]                [10]                [14]                 [1]                 [6]
-              ...   ...                        ...                 ...                 ...                 ...                 ...                 ...                 ...                 ...
-             1.00     6                       0.99                [11]                [13]                [10]                 [9]                 [0]                 [8]                 [2]
-             0.00     3                       0.00                [11]                [13]                [10]                 [0]                 [1]                 [5]                 [2]
-             1.00    10                       1.00                [11]                [13]                 [9]                 [3]                 [5]                 [6]                [12]
-             0.00     2                       0.00                [11]                [13]                 [9]                [10]                 [1]                 [3]                 [5]
-             0.00     4                       0.01                [11]                 [9]                [13]                [10]                [12]                 [1]                 [0]
+                PredictGBM  Rank  PredictQuantile  PredictCalibrated VariableImportance1 VariableImportance2 VariableImportance3 VariableImportance4 VariableImportance5 VariableImportance6 VariableImportance7
+                    95.02      7           117.10             118.58                 [5]                 [6]                 [4]                 [2]                 [9]                 [8]                 [3]
+                    273.12    10           270.39             272.20                 [9]                 [6]                 [4]                 [2]                 [8]                 [1]                 [5]
+                    -189.48    2          -181.02            -181.82                 [2]                 [9]                 [5]                 [8]                 [4]                 [3]                 [1]
+                    229.24     9           191.21             190.79                 [6]                 [4]                 [9]                 [7]                 [5]                 [1]                 [8]
+                    172.63     9           152.47             152.52                 [4]                 [5]                 [2]                 [6]                 [3]                 [1]                 [8]
+                    ...      ...              ...                ...                 ...                 ...                 ...                 ...                 ...                 ...                 ...
+                    60.17      7            -1.43              -1.74                 [5]                 [3]                 [6]                 [1]                 [9]                 [2]                 [8]
+                    210.17     9           226.55             226.49                 [9]                 [8]                 [4]                 [2]                 [5]                 [1]                 [6]
+                    144.20     8           149.64             149.69                 [2]                 [3]                 [7]                 [4]                 [6]                 [9]                 [8]
+                    67.96      7            34.38              32.13                 [9]                 [6]                 [2]                 [8]                 [7]                 [5]                 [0]
+                    -69.11     4           -65.02             -64.74                 [5]                 [9]                 [6]                 [8]                 [4]                 [3]                 [1]
     """
     def Predict(self):
         Data = self.Data
@@ -198,7 +198,8 @@ class NumericPredict():
         predictionsDictionary,
         QrModel, UpperBorder, UpperValue, Calibration,
         CreateModelDate,
-        NameColumnsOfDataInModel] = obj
+        NameColumnsOfDataInModel,
+        conf] = obj
        
         del f, Path, obj   
 

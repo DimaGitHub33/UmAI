@@ -359,26 +359,55 @@ from sklearn.datasets import make_classification
 from sklearn.ensemble import IsolationForest
 
 ## 1) Load Data -------------------------------------------------------------------------------------     
-dataHealth = pd.read_csv("/Users/dhhazanov/Downloads/Eli_data_health.csv")
+dataHealth = pd.read_csv("/Users/dhhazanov/UmAI/Data/insurance_claims.csv")
 dataHealth = pd.DataFrame(dataHealth)
-dataHealth = dataHealth.drop(['Unnamed: 0','Column1'], axis = 1)
+dataHealth = dataHealth.drop(['Unnamed: 0','Column1'], axis = 1,errors = 'ignore') 
+#dataHealth = dataHealth.loc[:,['fraud_reported','auto_model','auto_make','police_report_available','property_damage','incident_location','incident_city','incident_state','authorities_contacted','policy_state','policy_csl','insured_sex','insured_education_level','insured_occupation','insured_hobbies','insured_relationship','incident_type','collision_type','incident_severity']]
 
 
-# makeClassificationX = dataHealth.drop('GIL',axis = 1)
-# makeClassificationY = np.where(dataHealth['GIL'] >= dataHealth['GIL'].mean(),1,0) 
-makeClassificationX = dataHealth.drop('HAVE_HAKIRA',axis = 1)
-makeClassificationY = dataHealth['HAVE_HAKIRA'].fillna(0)
+
+## Creating order to level of the factors -------------------------
+#      Variable                 Order Level
+#        GENDER                   ז      0
+#        GENDER                   נ      1
+# FAMILY_STATUS                   נ      0
+# FAMILY_STATUS                   ר      1
+# FAMILY_STATUS                   א      2
+TempData = dataHealth
+TempData['Y'] = np.where(dataHealth['fraud_reported']=='Y', 1, 0)
+FactorsVariablesOrder = pd.DataFrame()
+FactorVariables = ['fraud_reported','auto_model','auto_make','police_report_available','property_damage','incident_location','incident_city',
+                    'incident_state','authorities_contacted','policy_state','policy_csl','insured_sex','insured_education_level',
+                    'insured_occupation','insured_hobbies','insured_relationship','incident_type','collision_type','incident_severity']
+for Variable in FactorVariables:
+    # print(Variable)
+    # print(TempData.groupby(Variable)['Y'].apply(np.mean).reset_index())
+    FactorOrder = TempData.groupby(Variable)['Y'].apply(np.mean).reset_index()
+    FactorOrder.columns = ['Level','Y']
+    FactorOrder = FactorOrder.sort_values(by = 'Y', ascending = False).reset_index(drop = True)
+    FactorOrder['Order'] = list(FactorOrder.index)
+    FactorOrder = FactorOrder.drop('Y',axis=1)
+    FactorOrder['Variable'] = Variable
+    FactorOrder = FactorOrder[['Variable','Order','Level']]
+    FactorsVariablesOrder = pd.concat([FactorsVariablesOrder, FactorOrder], axis=0)
+    
+
+
+## Create the X data and the Y data ---------------------------------
+makeClassificationY = np.where(dataHealth['fraud_reported']=='Y', 1, 0)
+#makeClassificationY = np.where(dataHealth['vehicle_claim']>=dataHealth['vehicle_claim'].quantile(0.95), 1, 0)
+makeClassificationX = dataHealth.drop('fraud_reported',axis = 1, errors = 'ignore')
+
 
 XTrain, XTest, YTrain, YTest = train_test_split(makeClassificationX, makeClassificationY, test_size=0.3, random_state=0)
-pd.DataFrame(YTrain).describe()
-
+#pd.DataFrame(YTrain).describe()
 
 ## 2) Pridit Score ----------------------------------------------------------------------------------
 ## Creating the Data
-Data = pd.DataFrame(XTrain)
+Data = pd.DataFrame(XTrain).reset_index(drop = False)
 Data.columns = Data.columns.astype(str)
 
-## Creating the NumericVariablesOrder
+# Creating the NumericVariablesOrder
 # NumericVariablesOrder = pd.DataFrame()
 # for col in Data.columns:
 #     if (np.abs(np.corrcoef(Data.loc[:,col],YTrain)[0,1])<=0.05):
@@ -392,12 +421,12 @@ NumericVariablesOrder = None
 
 ## Creating the configuration
 conf = {
-    # 'UsingFacotr': 'OnlyVariables',  ##Both, OnlyVariables, None
-    #'FactorVariables': FactorVariables,  ##List, None
+    'UsingFacotr': 'OnlyVariables',  ##Both, OnlyVariables, None
+    'FactorVariables': FactorVariables,  ##List, None
     #'NumericVariables': NumericVariables,  ##list, None
     #'FactorVariables': [],  ##List, None
     #'NumericVariables': [],  ##list, None
-    #'FactorsVariablesOrder': None,  ##List, None
+    'FactorsVariablesOrder': FactorsVariablesOrder,  ##List, None
     'NumericVariablesOrder': NumericVariablesOrder  ##List, None
 }
 
@@ -405,11 +434,11 @@ conf = {
 PC = PriditClassifier(Data = Data, conf = conf,logger = logger)
 #PC = PriditClassifier(Data = Data, conf = {},logger = logger)
 priditScore,F,firstEigenVector  = PC.Pridit()
-pd.DataFrame(firstEigenVector).describe()
+pd.DataFrame(priditScore).describe()
 
 ## 3) Model ----------------------------------------------------------------------------------
 ## Creating the Data 
-Data = pd.DataFrame(XTrain)
+Data = pd.DataFrame(XTrain).reset_index(drop = True)
 Data['priditScore'] = priditScore
 Data['priditScore'].describe()
 
@@ -469,12 +498,14 @@ Output.groupby('Rank')['PredictGBM'].apply(np.mean).reset_index()##Checking the 
 # 8    10        1.00
 
 ## 4) Predict ----------------------------------------------------------------------------------
-NewData = pd.concat([pd.DataFrame(XTest),pd.DataFrame({'Y':YTest})],axis=1)
+NewData = pd.DataFrame(XTest).reset_index(drop=True)
+NewData['Y'] = YTest
 
 conf={
     'Path':'/Users/dhhazanov/UmAI/Models/Model.pckl'##Where is the model saved
 }
-Predictions = Predict(NewData,conf,logger).Predict()
+PredictionsClass = Predict(NewData,conf,logger)
+Predictions = PredictionsClass.Predict()
 Predictions.describe()
 
 Predictions['ActualY'] = NewData['Y'] 
