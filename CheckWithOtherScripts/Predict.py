@@ -43,66 +43,38 @@ class Predict():
 
         self.logger.debug('Predict was created')
 
-    ## ------------------------------------------------------------------------------
-    ## ----------------------------- read_pickle  -----------------------------------
-    ## ------------------------------------------------------------------------------
-    """    
-    read_pickle
-        Args:
-        Returns:
-          Model pickle
-    """
-    def read_pickle(self,path):
-        
-        logger = self.logger
-        logger.debug('Read the pickle from {path} '.format(path = path))
-
-        ## Read the pickle
-        f = open(path, 'rb')
-        obj = pickle.load(f)
-        f.close()     
-
-        return obj
 
     ## ------------------------------------------------------------------------------
-    ## ----------------------- get_conf_from_pkl  -----------------------------------
+    ## ----------------------- load_model function-----------------------------------
     ## ------------------------------------------------------------------------------
     """    
     load_model
         Args:
+          self:
+            All the configuration of the prediction like where are the models
+            Example:
+                    conf={
+                         'Path':'/Users/dhhazanov/UmAI/Models/Model.pckl' ##Where is the model saved
+                         }
+    
           Path:
-            Where the model pickle was saved
+            Where to write the conf dictionary
             Example:
                     '/Users/dhhazanov/UmAI/Models/conf2'
         Returns:
-          conf model
+          write conf in Path that inputed as json file
     
     """
-    def get_conf_from_pkl(self,path):
+    def load_model(self,Path):
         Data = self.Data
         conf = self.conf
         logger = self.logger
-        read_pickle = self.read_pickle
 
-        logger.debug('get conf from pkl from {path} '.format(path = path))
+        ### Save The conf ----------------------------------------------------- 
+        with open(Path, 'w') as convert_file:
+            convert_file.write(json.dumps(conf))
 
-        ### Load The pickle ------------------------------------------------------- 
-        [factorVariables,
-         numericVariables,
-         YMCFactorDictionaryList,
-         totalYMeanTarget,
-         totalYMedianTarget,
-         YMCDictionaryNumericList,
-         GBMModel,
-         maxY,
-         minY,
-         logisticRegressionModel,
-         predictionsDictionary,
-         CreateModelDate,
-         NameColumnsOfDataInModel,
-         conf] = read_pickle(path)
-
-        return conf
+        logger.debug('conf saved in = {path} '.format(path=Path))
 
 
     ## ------------------------------------------------------------------------------
@@ -119,9 +91,22 @@ class Predict():
         Data = self.Data
         conf = self.conf
         logger = self.logger
-        read_pickle = self.read_pickle
 
-        ### Load The Pickle -------------------------------------------------------  
+        ## convert columns names to string -----------------------------------------
+        Data.columns = Data.columns.astype(str)
+        
+        ## Reset Index to Data -----------------------------------------------------
+        #Data = Data.reset_index(drop=True)
+
+        ### Load The Models ------------------------------------------------------- 
+        Path = conf['Path']
+
+        logger.debug('using path from conf , path={path} '.format(path=Path))
+        # Path = Path.replace('Segment', Segment, 1)
+        f = open(Path, 'rb')
+        obj = pickle.load(f)
+        f.close()     
+
         [factorVariables,
          numericVariables,
          YMCFactorDictionaryList,
@@ -135,10 +120,9 @@ class Predict():
          predictionsDictionary,
          CreateModelDate,
          NameColumnsOfDataInModel,
-         conf] = read_pickle(path = conf['Path'])
+         conf] = obj
 
-        ## convert columns names to string -----------------------------------------
-        Data.columns = Data.columns.astype(str)
+        del f, Path, obj    
 
         ### Check if existed in the predicted data the columns in the trained model data --
         Flag = set(NameColumnsOfDataInModel).issubset(set(Data.columns))##set([1,2,3]).issubset(set([1,2,3,4])) return TRUE
@@ -189,16 +173,24 @@ class Predict():
         Data = self.Data
         conf = self.conf
         logger = self.logger
-        read_pickle = self.read_pickle
 
         ## convert columns names to string -----------------------------------------
         Data.columns = Data.columns.astype(str)
         
         ## Reset Index to Data -----------------------------------------------------
         Data = Data.reset_index(drop=True)
+
         logger.debug('fit called with parameters conf={conf} '.format(conf = conf))
         
         ### Load The Models ------------------------------------------------------- 
+        Path = conf['Path']
+
+        logger.debug('using path from conf , path={path} '.format(path=Path))
+        # Path = Path.replace('Segment', Segment, 1)
+        f = open(Path, 'rb')
+        obj = pickle.load(f)
+        f.close()
+
         [factorVariables,
          numericVariables,
          YMCFactorDictionaryList,
@@ -212,13 +204,13 @@ class Predict():
          predictionsDictionary,
          CreateModelDate,
          NameColumnsOfDataInModel,
-         conf] = read_pickle(path = conf['Path'])        
+         conf] = obj
 
-
-        ### Raise error if in the predict data there are no columns in the models -
         missing = set(NameColumnsOfDataInModel) - set(self.Data)
         if (len(missing)) > 0:
             raise Exception("missing columns ->" + str(missing))
+
+        del f, Path, obj   
 
         ### Inserting the YMC Values from the dictionaries to the DataPanel -------
         for variableName in YMCFactorDictionaryList:

@@ -106,7 +106,7 @@ class PriditClassifier():
             factorVariables = conf['FactorVariables']
             numericVariables = conf['NumericVariables']
             
-        ## Remove all the unique columns in Data
+        ## Remove all the unique columns in Data -----------------------------------------------------
         logger.info("Removing all the unique columns in the data")
         for colName in Data.columns:
             if len(Data.loc[:,colName].unique())==1:
@@ -241,7 +241,7 @@ class PriditClassifier():
                 if len(Order) == 0:
                     frequencyTable = frequencyTable.sort_values('Rank', ascending=True)
                 else:
-                    if Order['Order'][0] == 0:
+                    if list(Order['Order'])[0] == 0:
                         frequencyTable = frequencyTable.sort_values('Rank', ascending=False)
                     else:
                         frequencyTable = frequencyTable.sort_values('Rank', ascending=True)

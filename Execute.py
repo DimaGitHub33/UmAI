@@ -119,7 +119,7 @@ conf={
 }
 
 PredictClass = Predict(NewData,conf,logger)
-PredictClass.load_model(Path = '/Users/dhhazanov/UmAI/Models/conf2')##Path is where to write the configuration
+PredictClass.get_conf_from_pkl(path = conf['Path'])##Return the conf of the model
 Flag,Difference = PredictClass.pre_predict_validation()
 Predictions = PredictClass.Predict()
 Predictions.describe()
@@ -421,7 +421,7 @@ NumericVariablesOrder = None
 
 ## Creating the configuration
 conf = {
-    'UsingFacotr': 'OnlyVariables',  ##Both, OnlyVariables, None
+    'UsingFactor': 'OnlyVariables',  ##Both, OnlyVariables, None
     'FactorVariables': FactorVariables,  ##List, None
     #'NumericVariables': NumericVariables,  ##list, None
     #'FactorVariables': [],  ##List, None
