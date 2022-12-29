@@ -93,14 +93,12 @@ class NumericPredict():
          totalYMeanTarget,
          totalYMedianTarget,
          YMCDictionaryNumericList,
-         GBMModel,
-         maxY,
-         minY,
-         logisticRegressionModel,
+         GBMModel, maxY, minY,
          predictionsDictionary,
+         QrModel, UpperBorder, UpperValue, Calibration,
          CreateModelDate,
          NameColumnsOfDataInModel,
-         conf] = read_pickle(path)
+         conf]= read_pickle(path)
 
         return conf
 
@@ -121,21 +119,20 @@ class NumericPredict():
         logger = self.logger
         read_pickle = self.read_pickle
 
-        ### Load The Pickle -------------------------------------------------------  
+
+        ### Load The pickle ------------------------------------------------------- 
         [factorVariables,
-         numericVariables,
-         YMCFactorDictionaryList,
-         totalYMeanTarget,
-         totalYMedianTarget,
-         YMCDictionaryNumericList,
-         GBMModel,
-         maxY,
-         minY,
-         logisticRegressionModel,
-         predictionsDictionary,
-         CreateModelDate,
-         NameColumnsOfDataInModel,
-         conf] = read_pickle(path = conf['Path'])
+        numericVariables,
+        YMCFactorDictionaryList,
+        totalYMeanTarget,
+        totalYMedianTarget,
+        YMCDictionaryNumericList,
+        GBMModel, maxY, minY,
+        predictionsDictionary,
+        QrModel, UpperBorder, UpperValue, Calibration,
+        CreateModelDate,
+        NameColumnsOfDataInModel,
+        conf] = read_pickle(path = conf['Path'])
 
         ## convert columns names to string -----------------------------------------
         Data.columns = Data.columns.astype(str)
@@ -188,7 +185,7 @@ class NumericPredict():
         Data = self.Data
         conf = self.conf
         logger = self.logger
-        read_pickle = self.logger
+        read_pickle = self.read_pickle
 
         ## convert columns names to string -----------------------------------------
         Data.columns = Data.columns.astype(str)
@@ -198,7 +195,7 @@ class NumericPredict():
 
         logger.debug('fit called with parameters conf={conf} '.format(conf = conf))
         
-        ### Load The Models ------------------------------------------------------- 
+        ### Load The pickle ------------------------------------------------------- 
         [factorVariables,
         numericVariables,
         YMCFactorDictionaryList,
@@ -211,7 +208,6 @@ class NumericPredict():
         CreateModelDate,
         NameColumnsOfDataInModel,
         conf] = read_pickle(path = conf['Path'])
-       
 
         ### Inserting the YMC Values from the dictionaries to the DataPanel -------
         for variableName in YMCFactorDictionaryList:
