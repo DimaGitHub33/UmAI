@@ -216,7 +216,7 @@ class Predict():
 
 
         ### Raise error if in the predict data there are no columns in the models -
-        missing = set(NameColumnsOfDataInModel) - set(self.Data)
+        missing = set(NameColumnsOfDataInModel) - set(Data)
         if (len(missing)) > 0:
             raise Exception("missing columns ->" + str(missing))
 

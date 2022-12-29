@@ -98,31 +98,57 @@ class PriditClassifier():
         if (not 'NumericVariablesOrder' in conf):
             logger.info('NumericVariablesOrder not found in conf using default -> None')
             conf['NumericVariablesOrder'] = None
-        if (not 'UsingFactor' in conf):
-            logger.info('UsingFactor not found in conf using default -> None]')
-            conf['NumericVariablesOrder'] = None
-
+        # if (not 'UsingFactor' in conf):
+        #     logger.info('UsingFactor not found in conf using default -> None]')
+        #     conf['NumericVariablesOrder'] = None
+        
+        ## When we use only the variables in conf ---------------------------------------------------
         if (conf['UsingFactor'] == 'OnlyVariables'):
             factorVariables = conf['FactorVariables']
             numericVariables = conf['NumericVariables']
-            
-        ## Remove all the unique columns in Data -----------------------------------------------------
-        logger.info("Removing all the unique columns in the data")
-        for colName in Data.columns:
-            if len(Data.loc[:,colName].unique())==1:
-                logger.info(colName + " Removed")
-                Data.drop(colName, inplace=True, axis=1)
-        
-        logger.info('execute pridit with conf -> {conf}'.format(conf=conf))
 
-        
+            missingFactor = set(factorVariables) - set(Data.columns)
+            if (len(missingFactor) > 0):
+                raise Exception("missing columns ->" + str(missingFactor))
+            missingNumeric = set(numericVariables) - set(Data.columns)
+            if (len(missingNumeric) > 0):
+                raise Exception("missing columns ->" + str(missingNumeric))
+
+            del missingFactor, missingNumeric
+            
+        ## When we us Both we take the FactorVariables and NumericVariables and decide others 
+        ## in Data.columns What type they are
         ## Fill the FactorVariables and NumericVariables list for other columns in the input data ----
         if (conf['UsingFactor'] == 'Both'):
             logger.info('UsingFactor == Both using factors [FactorVariables + NumericVariables]'.format(conf=conf))
 
+
+            ##If FactorVariables or numericVariables are empty we will raise an error
+            try:
+                conf['FactorVariables']
+            except:
+                conf['FactorVariables'] = []     
+
+            try:
+                conf['numericVariables']
+            except:
+                conf['numericVariables'] = []    
+
+
             factorVariables = conf['FactorVariables']
             numericVariables = conf['NumericVariables']
 
+            ##Raise error if factorVariables or numericVariables not in the Data.columns
+            missingFactor = set(factorVariables) - set(Data.columns)
+            if (len(missingFactor) > 0):
+                raise Exception("missing columns ->" + str(missingFactor))
+            missingNumeric = set(numericVariables) - set(Data.columns)
+            if (len(missingNumeric) > 0):
+                raise Exception("missing columns ->" + str(missingNumeric))
+
+            del missingFactor, missingNumeric
+
+            # Fill the factorVariables with the other factors in the data
             factorVariables2 = []
             dataTypes = Data.dtypes.reset_index().rename(columns={'index': 'Index', 0: 'Type'})
             for Index, row in dataTypes.iterrows():
@@ -134,6 +160,7 @@ class PriditClassifier():
             if (len(factorVariables2) > 0):
                 factorVariables.extend(factorVariables2)
 
+            # Fill the numericVariables with the other factors in the data
             numericVariables2 = []
             dataTypes = Data.dtypes.reset_index().rename(columns={'index': 'Index', 0: 'Type'})
             for Index, row in dataTypes.iterrows():
@@ -149,27 +176,38 @@ class PriditClassifier():
             del (factorVariables2)
 
         ## Fill the FactorVariables and NumericVariables list ----------------------
-        if factorVariables is None or len(factorVariables) == 0:
-            logger.info('factorVariables is None -> build auto factor variable'.format(conf=conf))
-            factorVariables = []
-            dataTypes = Data.dtypes.reset_index().rename(columns={'index': 'Index', 0: 'Type'})
-            for Index, row in dataTypes.iterrows():
-                if row['Type'] in ['object', 'str']:
-                    factorVariables.append(row['Index'])
+        if (conf['UsingFactor'] is None):
+            if factorVariables is None or len(factorVariables) == 0:
+                logger.info('factorVariables is None -> build auto factor variable'.format(conf=conf))
+                factorVariables = []
+                dataTypes = Data.dtypes.reset_index().rename(columns={'index': 'Index', 0: 'Type'})
+                for Index, row in dataTypes.iterrows():
+                    if row['Type'] in ['object', 'str']:
+                        factorVariables.append(row['Index'])
 
-        if numericVariables is None or len(numericVariables) == 0:
-            logger.info('numericVariables is None -> build auto factor variable'.format(conf=conf))
-            numericVariables = []
-            dataTypes = Data.dtypes.reset_index().rename(columns={'index': 'Index', 0: 'Type'})
-            for Index, row in dataTypes.iterrows():
-                if row['Type'] in ['int64', 'float64']:
-                    numericVariables.append(row['Index'])
+            if numericVariables is None or len(numericVariables) == 0:
+                logger.info('numericVariables is None -> build auto factor variable'.format(conf=conf))
+                numericVariables = []
+                dataTypes = Data.dtypes.reset_index().rename(columns={'index': 'Index', 0: 'Type'})
+                for Index, row in dataTypes.iterrows():
+                    if row['Type'] in ['int64', 'float64']:
+                        numericVariables.append(row['Index'])
 
         ## Fill the orders of the variables
         factorsVariablesOrder = conf['FactorsVariablesOrder']
         logger.info('using factorsVariablesOrder with {conf}'.format(conf=factorsVariablesOrder))
         numericVariablesOrder = conf['NumericVariablesOrder']
         logger.info('using NumericVariablesOrder with {conf}'.format(conf=numericVariablesOrder))
+
+
+        ## Remove all the unique columns in Data -----------------------------------------------------
+        logger.info("Removing all the unique columns in the data")
+        for colName in Data.columns:
+            if len(Data.loc[:,colName].unique())==1:
+                logger.info(colName + " Removed")
+                Data.drop(colName, inplace=True, axis=1)
+        
+        logger.info('execute pridit with conf -> {conf}'.format(conf=conf))
 
         ## F calculation for Factor variables  ------------------------------------
         F = pd.DataFrame()

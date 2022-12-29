@@ -53,7 +53,15 @@ PC = PriditClassifier(Data = Data, conf = conf,logger = logger)
 #PC = PriditClassifier(Data = Data, conf = {},logger = logger)
 priditScore,F,firstEigenVector  = PC.Pridit()
 pd.DataFrame(firstEigenVector).describe()
-
+#           0
+# count 13.00
+# mean  -0.07
+# std    0.28
+# min   -0.63
+# 25%   -0.01
+# 50%   -0.00
+# 75%   -0.00
+# max    0.48
 ## 3) Model ----------------------------------------------------------------------------------
 ## Creating the Data 
 Data = pd.DataFrame(XTrain)
@@ -219,7 +227,15 @@ PC = PriditClassifier(Data = Data, conf = conf,logger = logger)
 #PC = PriditClassifier(Data = Data, conf = {},logger = logger)
 priditScore,F,firstEigenVector  = PC.Pridit()
 pd.DataFrame(firstEigenVector).describe()
-
+#            0
+# count 398.00
+# mean   -0.00
+# std     2.12
+# min    -4.13
+# 25%    -1.86
+# 50%     0.37
+# 75%     1.60
+# max     3.95
 ## 3) Model ----------------------------------------------------------------------------------
 ## Creating the Data 
 Data = pd.DataFrame(XTrain)
@@ -376,7 +392,7 @@ dataHealth = dataHealth.drop(['Unnamed: 0','Column1'], axis = 1,errors = 'ignore
 TempData = dataHealth
 TempData['Y'] = np.where(dataHealth['fraud_reported']=='Y', 1, 0)
 FactorsVariablesOrder = pd.DataFrame()
-FactorVariables = ['fraud_reported','auto_model','auto_make','police_report_available','property_damage','incident_location','incident_city',
+FactorVariables = ['auto_model','auto_make','police_report_available','property_damage','incident_location','incident_city',
                     'incident_state','authorities_contacted','policy_state','policy_csl','insured_sex','insured_education_level',
                     'insured_occupation','insured_hobbies','insured_relationship','incident_type','collision_type','incident_severity']
 for Variable in FactorVariables:
@@ -404,7 +420,7 @@ XTrain, XTest, YTrain, YTest = train_test_split(makeClassificationX, makeClassif
 
 ## 2) Pridit Score ----------------------------------------------------------------------------------
 ## Creating the Data
-Data = pd.DataFrame(XTrain).reset_index(drop = False)
+Data = pd.DataFrame(XTrain).reset_index(drop = True)
 Data.columns = Data.columns.astype(str)
 
 # Creating the NumericVariablesOrder
@@ -421,7 +437,7 @@ NumericVariablesOrder = None
 
 ## Creating the configuration
 conf = {
-    'UsingFactor': 'OnlyVariables',  ##Both, OnlyVariables, None
+    'UsingFactor': 'Both',  ##Both, OnlyVariables, None
     'FactorVariables': FactorVariables,  ##List, None
     #'NumericVariables': NumericVariables,  ##list, None
     #'FactorVariables': [],  ##List, None
@@ -434,8 +450,16 @@ conf = {
 PC = PriditClassifier(Data = Data, conf = conf,logger = logger)
 #PC = PriditClassifier(Data = Data, conf = {},logger = logger)
 priditScore,F,firstEigenVector  = PC.Pridit()
-pd.DataFrame(priditScore).describe()
-
+pd.DataFrame(firstEigenVector).describe()
+#           0
+# count 39.00
+# mean  -0.01
+# std    0.16
+# min   -0.42
+# 25%   -0.03
+# 50%    0.00
+# 75%    0.03
+# max    0.29
 ## 3) Model ----------------------------------------------------------------------------------
 ## Creating the Data 
 Data = pd.DataFrame(XTrain).reset_index(drop = True)
@@ -512,27 +536,42 @@ Predictions['ActualY'] = NewData['Y']
 
 Predictions.groupby('ActualY')['PredictGBM'].apply(np.mean).reset_index()
 #    ActualY  PredictGBM
-# 0     0.00        0.48
-# 1     1.00        0.55
+# 0        0        0.50
+# 1        1        0.76
 Predictions.groupby('Rank')['ActualY'].apply(np.mean).reset_index()
 #    Rank  ActualY
-# 0     6     0.40
-# 1     7     0.43
-# 2     8     0.42
-# 3     9     0.48
-# 4    10     0.55
+# 0     1     0.00
+# 1     2     0.00
+# 2     3     0.20
+# 3     4     0.41
+# 4     5     0.25
+# 5     6     0.06
+# 6     7     0.11
+# 7     8     0.29
+# 8     9     0.27
+# 9    10     1.00
 Predictions.groupby('Rank')['PredictGBM'].apply(np.mean).reset_index()
 #    Rank  PredictGBM
-# 0     6        0.00
-# 1     7        0.10
-# 2     8        0.92
-# 3     9        1.00
-# 4    10        1.00
+# 0     1        0.00
+# 1     2        0.02
+# 2     3        0.08
+# 3     4        0.39
+# 4     5        0.78
+# 5     6        0.93
+# 6     7        0.97
+# 7     8        0.99
+# 8     9        0.99
+# 9    10        1.00
 
 Predictions.groupby('Rank')['ActualY'].apply(np.mean).reset_index()
 #    Rank  ActualY
-# 0     6     0.40
-# 1     7     0.43
-# 2     8     0.42
-# 3     9     0.48
-# 4    10     0.55
+# 0     1     0.00
+# 1     2     0.00
+# 2     3     0.20
+# 3     4     0.41
+# 4     5     0.25
+# 5     6     0.06
+# 6     7     0.11
+# 7     8     0.29
+# 8     9     0.27
+# 9    10     1.00

@@ -43,37 +43,66 @@ class NumericPredict():
         self.logger.debug('Predict was created')
 
 
+      ## ------------------------------------------------------------------------------
+    ## ----------------------------- read_pickle  -----------------------------------
     ## ------------------------------------------------------------------------------
-    ## ----------------------- load_model function-----------------------------------
+    """    
+    read_pickle
+        Args:
+        Returns:
+          Model pickle
+    """
+    def read_pickle(self,path):
+        
+        logger = self.logger
+        logger.debug('Read the pickle from {path} '.format(path = path))
+
+        ## Read the pickle
+        f = open(path, 'rb')
+        obj = pickle.load(f)
+        f.close()     
+
+        return obj
+
+    ## ------------------------------------------------------------------------------
+    ## ----------------------- get_conf_from_pkl  -----------------------------------
     ## ------------------------------------------------------------------------------
     """    
     load_model
         Args:
-          self:
-            All the configuration of the prediction like where are the models
-            Example:
-                    conf={
-                         'Path':'/Users/dhhazanov/UmAI/Models/Model.pckl' ##Where is the model saved
-                         }
-    
           Path:
-            Where to write the conf dictionary
+            Where the model pickle was saved
             Example:
                     '/Users/dhhazanov/UmAI/Models/conf2'
         Returns:
-          write conf in Path that inputed as json file
+          conf model
     
     """
-    def load_model(self,Path):
+    def get_conf_from_pkl(self,path):
         Data = self.Data
         conf = self.conf
         logger = self.logger
+        read_pickle = self.read_pickle
 
-        ### Save The conf ----------------------------------------------------- 
-        with open(Path, 'w') as convert_file:
-            convert_file.write(json.dumps(conf))
+        logger.debug('get conf from pkl from {path} '.format(path = path))
 
-        logger.debug('conf saved in = {path} '.format(path=Path))
+        ### Load The pickle ------------------------------------------------------- 
+        [factorVariables,
+         numericVariables,
+         YMCFactorDictionaryList,
+         totalYMeanTarget,
+         totalYMedianTarget,
+         YMCDictionaryNumericList,
+         GBMModel,
+         maxY,
+         minY,
+         logisticRegressionModel,
+         predictionsDictionary,
+         CreateModelDate,
+         NameColumnsOfDataInModel,
+         conf] = read_pickle(path)
+
+        return conf
 
 
     ## ------------------------------------------------------------------------------
@@ -90,36 +119,26 @@ class NumericPredict():
         Data = self.Data
         conf = self.conf
         logger = self.logger
+        read_pickle = self.read_pickle
+
+        ### Load The Pickle -------------------------------------------------------  
+        [factorVariables,
+         numericVariables,
+         YMCFactorDictionaryList,
+         totalYMeanTarget,
+         totalYMedianTarget,
+         YMCDictionaryNumericList,
+         GBMModel,
+         maxY,
+         minY,
+         logisticRegressionModel,
+         predictionsDictionary,
+         CreateModelDate,
+         NameColumnsOfDataInModel,
+         conf] = read_pickle(path = conf['Path'])
 
         ## convert columns names to string -----------------------------------------
         Data.columns = Data.columns.astype(str)
-        
-        ## Reset Index to Data -----------------------------------------------------
-        #Data = Data.reset_index(drop=True)
-
-        ### Load The Models ------------------------------------------------------- 
-        Path = conf['Path']
-
-        logger.debug('using path from conf , path={path} '.format(path=Path))
-        # Path = Path.replace('Segment', Segment, 1)
-        f = open(Path, 'rb')
-        obj = pickle.load(f)
-        f.close()     
-
-        [factorVariables,
-        numericVariables,
-        YMCFactorDictionaryList,
-        totalYMeanTarget,
-        totalYMedianTarget,
-        YMCDictionaryNumericList,
-        GBMModel, maxY, minY,
-        predictionsDictionary,
-        QrModel, UpperBorder, UpperValue, Calibration,
-        CreateModelDate,
-        NameColumnsOfDataInModel,
-        conf] = obj
-
-        del f, Path, obj    
 
         ### Check if existed in the predicted data the columns in the trained model data --
         Flag = set(NameColumnsOfDataInModel).issubset(set(Data.columns))##set([1,2,3]).issubset(set([1,2,3,4])) return TRUE
@@ -133,7 +152,6 @@ class NumericPredict():
 
         return Flag,Difference
         
- 
     ## ------------------------------------------------------------------------------
     ## ---------------------------- Predict function --------------------------------
     ## ------------------------------------------------------------------------------
@@ -170,6 +188,7 @@ class NumericPredict():
         Data = self.Data
         conf = self.conf
         logger = self.logger
+        read_pickle = self.logger
 
         ## convert columns names to string -----------------------------------------
         Data.columns = Data.columns.astype(str)
@@ -180,14 +199,6 @@ class NumericPredict():
         logger.debug('fit called with parameters conf={conf} '.format(conf = conf))
         
         ### Load The Models ------------------------------------------------------- 
-        Path = conf['Path']
-
-        logger.debug('using path from conf , path={path} '.format(path=Path))
-        # Path = Path.replace('Segment', Segment, 1)
-        f = open(Path, 'rb')
-        obj = pickle.load(f)
-        f.close()
-
         [factorVariables,
         numericVariables,
         YMCFactorDictionaryList,
@@ -199,9 +210,8 @@ class NumericPredict():
         QrModel, UpperBorder, UpperValue, Calibration,
         CreateModelDate,
         NameColumnsOfDataInModel,
-        conf] = obj
+        conf] = read_pickle(path = conf['Path'])
        
-        del f, Path, obj   
 
         ### Inserting the YMC Values from the dictionaries to the DataPanel -------
         for variableName in YMCFactorDictionaryList:
