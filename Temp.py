@@ -375,18 +375,47 @@ from sklearn.datasets import make_classification
 from sklearn.ensemble import IsolationForest
 
 ## 1) Load Data -------------------------------------------------------------------------------------     
-InputData = pd.read_csv("/Users/dhhazanov/UmAI/Data/Train_Inpatientdata-1542865627584.csv")
-InputData = pd.DataFrame(InputData)
-InputData = InputData.drop(['Unnamed: 0','Column1'], axis = 1,errors = 'ignore') 
+dataHealth = pd.read_csv("/Users/dhhazanov/UmAI/Data/insurance_claims.csv")
+dataHealth = pd.DataFrame(dataHealth)
+dataHealth = dataHealth.drop(['Unnamed: 0','Column1'], axis = 1,errors = 'ignore') 
 #dataHealth = dataHealth.loc[:,['fraud_reported','auto_model','auto_make','police_report_available','property_damage','incident_location','incident_city','incident_state','authorities_contacted','policy_state','policy_csl','insured_sex','insured_education_level','insured_occupation','insured_hobbies','insured_relationship','incident_type','collision_type','incident_severity']]
 
 
 
-## Create the X data and the Y data ---------------------------------
-makeClassificationY = np.where(InputData['Provider']=='PRV55912', 1, 0)
-makeClassificationX = InputData
+## Creating order to level of the factors -------------------------
+#      Variable                 Order Level
+#        GENDER                   ז      0
+#        GENDER                   נ      1
+# FAMILY_STATUS                   נ      0
+# FAMILY_STATUS                   ר      1
+# FAMILY_STATUS                   א      2
+TempData = dataHealth
+TempData['Y'] = np.where(dataHealth['fraud_reported']=='Y', 1, 0)
+FactorsVariablesOrder = pd.DataFrame()
+FactorVariables = ['auto_model','auto_make','police_report_available','property_damage','incident_location','incident_city',
+                    'incident_state','authorities_contacted','policy_state','policy_csl','insured_sex','insured_education_level',
+                    'insured_occupation','insured_hobbies','insured_relationship','incident_type','collision_type','incident_severity']
+for Variable in FactorVariables:
+    # print(Variable)
+    # print(TempData.groupby(Variable)['Y'].apply(np.mean).reset_index())
+    FactorOrder = TempData.groupby(Variable)['Y'].apply(np.mean).reset_index()
+    FactorOrder.columns = ['Level','Y']
+    FactorOrder = FactorOrder.sort_values(by = 'Y', ascending = False).reset_index(drop = True)
+    FactorOrder['Order'] = list(FactorOrder.index)
+    FactorOrder = FactorOrder.drop('Y',axis=1)
+    FactorOrder['Variable'] = Variable
+    FactorOrder = FactorOrder[['Variable','Order','Level']]
+    FactorsVariablesOrder = pd.concat([FactorsVariablesOrder, FactorOrder], axis=0)
+    
 
-XTrain, XTest, YTrain, YTest = train_test_split(InputData, makeClassificationY, test_size=0.3, random_state=0)
+
+## Create the X data and the Y data ---------------------------------
+makeClassificationY = np.where(dataHealth['fraud_reported']=='Y', 1, 0)
+#makeClassificationY = np.where(dataHealth['vehicle_claim']>=dataHealth['vehicle_claim'].quantile(0.95), 1, 0)
+makeClassificationX = dataHealth.drop('fraud_reported',axis = 1, errors = 'ignore')
+
+
+XTrain, XTest, YTrain, YTest = train_test_split(makeClassificationX, makeClassificationY, test_size=0.3, random_state=0)
 #pd.DataFrame(YTrain).describe()
 
 ## 2) Pridit Score ----------------------------------------------------------------------------------
@@ -394,25 +423,28 @@ XTrain, XTest, YTrain, YTest = train_test_split(InputData, makeClassificationY, 
 Data = pd.DataFrame(XTrain).reset_index(drop = True)
 Data.columns = Data.columns.astype(str)
 
+# Creating the NumericVariablesOrder
+# NumericVariablesOrder = pd.DataFrame()
+# for col in Data.columns:
+#     if (np.abs(np.corrcoef(Data.loc[:,col],YTrain)[0,1])<=0.05):
+#         Data = Data.drop(col,axis=1)
+#         continue
+#     Row = pd.DataFrame(data={'Variable': col,
+#                              'Order': np.where(np.corrcoef(Data.loc[:,col],YTrain)[0,1]>=0,1,0)}, index=[0])
+#     print(np.corrcoef(Data.loc[:,col],YTrain)[0,1])
+#     NumericVariablesOrder = pd.concat([NumericVariablesOrder,Row])
 NumericVariablesOrder = None
 
 ## Creating the configuration
 conf = {
     'UsingFactor': 'Both',  ##Both, OnlyVariables, None
-    'FactorVariables': None,  ##List, None
+    'FactorVariables': FactorVariables,  ##List, None
     #'NumericVariables': NumericVariables,  ##list, None
     #'FactorVariables': [],  ##List, None
     #'NumericVariables': [],  ##list, None
-    'FactorsVariablesOrder': None,  ##List, None
-    'NumericVariablesOrder': None  ##List, None
+    'FactorsVariablesOrder': FactorsVariablesOrder,  ##List, None
+    'NumericVariablesOrder': NumericVariablesOrder  ##List, None
 }
-# {'UsingFactor': 'Both', 
-# 'FactorVariables': ['BeneID', 'ClaimID', 'Provider', 'AttendingPhysician', 'OperatingPhysician', 'OtherPhysician', 
-# 'ClmAdmitDiagnosisCode', 'DiagnosisGroupCode', 'ClmDiagnosisCode_1', 'ClmDiagnosisCode_2', 'ClmDiagnosisCode_3', 'ClmDiagnosisCode_4', 
-# 'ClmDiagnosisCode_5', 'ClmDiagnosisCode_6', 'ClmDiagnosisCode_7', 'ClmDiagnosisCode_8', 'ClmDiagnosisCode_9', 
-# 'ClmDiagnosisCode_10', 'DeductibleAmtPaid'], 
-# 'NumericVariables': ['ClmProcedureCode_1', 'ClmProcedureCode_2', 'ClmProcedureCode_3', 'InscClaimAmtReimbursed', 'ClmProcedureCode_4', 'ClmProcedureCode_5', 'ClmProcedureCode_6'], 
-# 'FactorsVariablesOrder':          
 
 ## Pridit
 PC = PriditClassifier(Data = Data, conf = conf,logger = logger)

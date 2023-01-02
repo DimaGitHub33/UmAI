@@ -213,7 +213,9 @@ class PriditClassifier():
         F = pd.DataFrame()
         for variableToConvert in factorVariables:
             # print(variableToConvert)
-            if Data.loc[:,variableToConvert].isnull().values.all():
+            if (variableToConvert not in Data.columns):
+                continue
+            if (Data.loc[:,variableToConvert].isnull().values.all()):
                 continue
 
             variable = Data[[variableToConvert]].copy()
@@ -253,7 +255,9 @@ class PriditClassifier():
         ## F calculation for numeric variables ------------------------------------
         for variableToConvert in [NV for NV in numericVariables if NV not in factorVariables]:
             #print(variableToConvert)
-            if Data.loc[:,variableToConvert].isnull().values.all():
+            if (variableToConvert not in Data.columns):
+                continue
+            if (Data.loc[:,variableToConvert].isnull().values.all()):
                 continue
 
             variable = Data[[variableToConvert]].copy().astype(float)
