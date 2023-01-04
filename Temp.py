@@ -375,75 +375,26 @@ from sklearn.datasets import make_classification
 from sklearn.ensemble import IsolationForest
 
 ## 1) Load Data -------------------------------------------------------------------------------------     
-dataHealth = pd.read_csv("/Users/dhhazanov/UmAI/Data/insurance_claims.csv")
-dataHealth = pd.DataFrame(dataHealth)
-dataHealth = dataHealth.drop(['Unnamed: 0','Column1'], axis = 1,errors = 'ignore') 
-#dataHealth = dataHealth.loc[:,['fraud_reported','auto_model','auto_make','police_report_available','property_damage','incident_location','incident_city','incident_state','authorities_contacted','policy_state','policy_csl','insured_sex','insured_education_level','insured_occupation','insured_hobbies','insured_relationship','incident_type','collision_type','incident_severity']]
-
-
-
-## Creating order to level of the factors -------------------------
-#      Variable                 Order Level
-#        GENDER                   ז      0
-#        GENDER                   נ      1
-# FAMILY_STATUS                   נ      0
-# FAMILY_STATUS                   ר      1
-# FAMILY_STATUS                   א      2
-TempData = dataHealth
-TempData['Y'] = np.where(dataHealth['fraud_reported']=='Y', 1, 0)
-FactorsVariablesOrder = pd.DataFrame()
-FactorVariables = ['auto_model','auto_make','police_report_available','property_damage','incident_location','incident_city',
-                    'incident_state','authorities_contacted','policy_state','policy_csl','insured_sex','insured_education_level',
-                    'insured_occupation','insured_hobbies','insured_relationship','incident_type','collision_type','incident_severity']
-for Variable in FactorVariables:
-    # print(Variable)
-    # print(TempData.groupby(Variable)['Y'].apply(np.mean).reset_index())
-    FactorOrder = TempData.groupby(Variable)['Y'].apply(np.mean).reset_index()
-    FactorOrder.columns = ['Level','Y']
-    FactorOrder = FactorOrder.sort_values(by = 'Y', ascending = False).reset_index(drop = True)
-    FactorOrder['Order'] = list(FactorOrder.index)
-    FactorOrder = FactorOrder.drop('Y',axis=1)
-    FactorOrder['Variable'] = Variable
-    FactorOrder = FactorOrder[['Variable','Order','Level']]
-    FactorsVariablesOrder = pd.concat([FactorsVariablesOrder, FactorOrder], axis=0)
-    
-
-
-## Create the X data and the Y data ---------------------------------
-makeClassificationY = np.where(dataHealth['fraud_reported']=='Y', 1, 0)
-#makeClassificationY = np.where(dataHealth['vehicle_claim']>=dataHealth['vehicle_claim'].quantile(0.95), 1, 0)
-makeClassificationX = dataHealth.drop('fraud_reported',axis = 1, errors = 'ignore')
-
-
-XTrain, XTest, YTrain, YTest = train_test_split(makeClassificationX, makeClassificationY, test_size=0.3, random_state=0)
-#pd.DataFrame(YTrain).describe()
+InputData = pd.read_csv("/Users/dhhazanov/UmAI/Data/Train_Inpatientdata-1542865627584.csv")
+InputData = pd.DataFrame(InputData)
 
 ## 2) Pridit Score ----------------------------------------------------------------------------------
 ## Creating the Data
-Data = pd.DataFrame(XTrain).reset_index(drop = True)
+Data = pd.DataFrame(InputData).reset_index(drop = True)
 Data.columns = Data.columns.astype(str)
 
-# Creating the NumericVariablesOrder
-# NumericVariablesOrder = pd.DataFrame()
-# for col in Data.columns:
-#     if (np.abs(np.corrcoef(Data.loc[:,col],YTrain)[0,1])<=0.05):
-#         Data = Data.drop(col,axis=1)
-#         continue
-#     Row = pd.DataFrame(data={'Variable': col,
-#                              'Order': np.where(np.corrcoef(Data.loc[:,col],YTrain)[0,1]>=0,1,0)}, index=[0])
-#     print(np.corrcoef(Data.loc[:,col],YTrain)[0,1])
-#     NumericVariablesOrder = pd.concat([NumericVariablesOrder,Row])
+
 NumericVariablesOrder = None
 
 ## Creating the configuration
 conf = {
     'UsingFactor': 'Both',  ##Both, OnlyVariables, None
-    'FactorVariables': FactorVariables,  ##List, None
+    'FactorVariables': None,  ##List, None
     #'NumericVariables': NumericVariables,  ##list, None
     #'FactorVariables': [],  ##List, None
     #'NumericVariables': [],  ##list, None
-    'FactorsVariablesOrder': FactorsVariablesOrder,  ##List, None
-    'NumericVariablesOrder': NumericVariablesOrder  ##List, None
+    'FactorsVariablesOrder': None,  ##List, None
+    'NumericVariablesOrder': None  ##List, None
 }
 
 ## Pridit
@@ -462,31 +413,61 @@ pd.DataFrame(firstEigenVector).describe()
 # max    0.29
 ## 3) Model ----------------------------------------------------------------------------------
 ## Creating the Data 
-Data = pd.DataFrame(XTrain).reset_index(drop = True)
-Data['priditScore'] = priditScore
-Data['priditScore'].describe()
+#Data = pd.DataFrame(InputData).reset_index(drop = True)
+InputData = pd.read_csv("/Users/dhhazanov/UmAI/Data/Train_Inpatientdata-1542865627584_for_model.csv")
+InputData = pd.DataFrame(InputData)
+conf = {
+    "Target": "NewHistoricalYTarget",
+    "ColumnSelectionType": "Drop",
+    "Keep": None,
+    "Drop": [
+        "priditScore"
+    ],
+    "ModelType": "GBM",
+    "Id": None,
+    'Path':'/Users/dhhazanov/UmAI/Models/Model.pckl',
+    "DataFileType": "csv",
+    "DataPath": "C:/git/Vehicle_suspicious_score_prod/uploads//Oragnization_Umai/Admin-/Domain_HealthClaims/Mapping_2/Train_Inpatientdata-1542865627584_for_model.csv",
+    "ScorePath": "C:/git/Vehicle_suspicious_score_prod/uploads//Oragnization_Umai/Admin-/Domain_HealthClaims/Mapping_2/Train_Inpatientdata-1542865627584_PriditScore",
+    "MappingId": "2",
+    "mapping_id": "2"
+}
+RunModel = Model(InputData,conf,logger)
+Flag,wrongColNames = RunModel.pre_model_validation()
+InputData = InputData.drop(['Unnamed: 0'], axis = 1,errors = 'ignore') 
+
+# Data['priditScore'] = priditScore
+# Data['priditScore'].describe()
 
 ## Creating the new unsupercised Y and adding the Actual Y
-Data['NewHistoricalYTarget'] = np.where(Data['priditScore'] >= Data['priditScore'].quantile(0.10),0,1)
-Data['NewHistoricalYTarget'] = np.where(Data['priditScore'] >= Data['priditScore'].mean(),0,1)
+# Data['NewHistoricalYTarget'] = np.where(Data['priditScore'] >= Data['priditScore'].quantile(0.10),0,1)
+# Data['NewHistoricalYTarget'] = np.where(Data['priditScore'] >= Data['priditScore'].mean(),0,1)
 
-Data['ActualY'] = pd.DataFrame(YTrain)
-pd.DataFrame(Data['ActualY'] == Data['NewHistoricalYTarget']).astype(float).describe()
+#Data['ActualY'] = pd.DataFrame(YTrain)
+#pd.DataFrame(Data['ActualY'] == Data['NewHistoricalYTarget']).astype(float).describe()
 
 ## Creating the configuration
-conf={
+conf = {
+    "Target": "NewHistoricalYTarget",
+    "ColumnSelectionType": "Drop",
+    "Keep": None,
+    "Drop": [
+        "priditScore"
+    ],
+    "ModelType": "GBM",
+    "Id": None,
     'Path':'/Users/dhhazanov/UmAI/Models/Model.pckl',
-    'Target':'NewHistoricalYTarget',
-    'ColumnSelectionType': 'Drop',#Drop,Keep
-    'Keep': None,#['GENDER', 'FAMILY_STATUS','GIL'],
-    'Drop': ['priditScore','ActualY'],#['GIL','ISUK_MERAKEZ','FAMILY_STATUS','ISHUN','M_CHOD_TASHLOM_BR'],#None,
-    'ModelType': None #GBM,Linear regression,...
+    "DataFileType": "csv",
+    "DataPath": "C:/git/Vehicle_suspicious_score_prod/uploads//Oragnization_Umai/Admin-/Domain_HealthClaims/Mapping_2/Train_Inpatientdata-1542865627584_for_model.csv",
+    "ScorePath": "C:/git/Vehicle_suspicious_score_prod/uploads//Oragnization_Umai/Admin-/Domain_HealthClaims/Mapping_2/Train_Inpatientdata-1542865627584_PriditScore",
+    "MappingId": "2",
+    "mapping_id": "2"
 }
-RunModel = Model(Data,conf,logger)
+RunModel = Model(InputData,conf,logger)
 Output = RunModel.fit()
 
 ## Checking the Model
-Output['Y'] = pd.DataFrame(YTrain)
+#Output['Y'] = pd.DataFrame(YTrain)
 Output.groupby('Target')['PredictGBM'].apply(np.mean).reset_index()##Checking the model (Train Test is the same)
 #    Target  PredictGBM
 # 0       0        0.04

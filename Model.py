@@ -14,7 +14,7 @@ from Functions import Ranks_Dictionary, RJitter, FunFactorYMC, FunNumericYMC
 pd.options.display.float_format = '{:.2f}'.format
 import warnings
 import logging as logger
-
+import re
 #from sklearn.linear_model import LogisticRegression
 #import lifelines
 #from lifelines.utils import k_fold_cross_validation
@@ -29,6 +29,7 @@ import logging as logger
 #from sklearn import metrics
 
 
+
 ## ------------------------------------------------------------------------------------------------
 ## ----------------------------------------- Model ------------------------------------------------
 ## ------------------------------------------------------------------------------------------------
@@ -41,6 +42,49 @@ class Model():
 
         self.logger.debug('Model was created')
 
+    ## ------------------------------------------------------------------------------
+    ## ------------------- pre_predict_validation function --------------------------
+    ## ------------------------------------------------------------------------------
+    """    
+    pre_predict_validation
+        Args:
+        Returns:
+          1) Flag (True/False) if the predicted data are all in the trained model data
+          2) What columns in the predicted data are not in the trained model data  
+    """
+    def pre_model_validation(self):
+        Data = self.Data
+        conf = self.conf
+        logger = self.logger
+
+        ## convert columns names to string -----------------------------------------
+        Data.columns = Data.columns.astype(str)
+        
+        ## Reset Index to Data -----------------------------------------------------
+        Data = Data.reset_index(drop=True)
+
+        ### Check if the columns names are wrong -----------------------------------
+        Flag = False
+        correctColumnsName = Data.rename(columns = lambda x:re.sub('[^A-Za-z0-9_]+', '', x)).columns
+        wrongColNames = set(correctColumnsName) - set(Data.columns)
+        
+        if (len(wrongColNames) > 0):
+            #raise Exception("wrong columns name ->" + str(wrongColNames))
+            Flag = True
+
+        if (Flag == True):
+            wrongColNames = 'Data columns are correct'
+            logger.debug(wrongColNames)
+        else:
+            wrongColNames = 'the columns: {wrongColNames} are not in the right format'.format(wrongColNames = wrongColNames)
+            logger.debug(wrongColNames)
+
+
+        return Flag,wrongColNames
+    
+    ## ------------------------------------------------------------------------------
+    ## ------------------- pre_predict_validation function --------------------------
+    ## ------------------------------------------------------------------------------
     def fit(self):
         Data = self.Data
         conf = self.conf
