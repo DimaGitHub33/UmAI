@@ -78,6 +78,7 @@ pd.DataFrame(Data['ActualY'] == Data['NewHistoricalYTarget']).astype(float).desc
 ## Creating the configuration
 conf={
     'Path':'/Users/dhhazanov/UmAI/Models/Model.pckl',
+    'ValidationDataPercent': 0.3,
     'Target':'NewHistoricalYTarget',
     'ColumnSelectionType': 'Drop',#Drop,Keep
     'Keep': None,#['GENDER', 'FAMILY_STATUS','GIL'],
@@ -87,6 +88,8 @@ conf={
 RunModel = Model(Data,conf,logger)
 Output = RunModel.fit()
 
+RunModel.get_modelMetricsEstimation_from_pkl(conf['Path'])
+#{'Accuracy': 0.9963095238095238, 'F1': 0.9963404556722937, 'Precision': 0.9957527135441245, 'Recall': 0.9969288920387432, 'RocCurve': (array([0.        , 0.00431965, 1.        ]), array([0.        , 0.99692889, 1.        ]), array([2, 1, 0]))}
 ## Checking the Model
 Output['Y'] = pd.DataFrame(YTrain)
 Output.groupby('Target')['PredictGBM'].apply(np.mean).reset_index()##Checking the model (Train Test is the same)
@@ -261,6 +264,9 @@ conf={
 RunModel = Model(Data,conf,logger)
 Output = RunModel.fit()
 
+RunModel.get_modelMetricsEstimation_from_pkl(conf['Path'])
+#{'Accuracy': 0.975, 'F1': 0.972972972972973, 'Precision': 1.0, 'Recall': 0.9473684210526315, 'RocCurve': (array([0., 0., 1.]), array([0.        , 0.94736842, 1.        ]), array([2, 1, 0]))}
+
 ## Checking the Model
 Output['Y'] = pd.DataFrame(YTrain)
 Output.groupby('Target')['PredictGBM'].apply(np.mean).reset_index()##Checking the model (Train Test is the same)
@@ -398,7 +404,7 @@ NumericVariablesOrder = None
 
 ## Creating the configuration
 conf = {
-    'UsingFactor': 'Both',  ##Both, OnlyVariables, None
+    'UsingFactor': 'Both',  ##Both, OnlyVariables, 
     'FactorVariables': None,  ##List, None
     #'NumericVariables': NumericVariables,  ##list, None
     #'FactorVariables': [],  ##List, None
@@ -452,6 +458,9 @@ conf={
 }
 RunModel = Model(Data,conf,logger)
 Output = RunModel.fit()
+
+RunModel.get_modelMetricsEstimation_from_pkl(conf['Path'])
+#{'Accuracy': 0.563514467184192, 'F1': 0.6310766477781091, 'Precision': 0.5501820072802912, 'Recall': 0.7398601398601399, 'RocCurve': (array([0.        , 0.61609687, 1.        ]), array([0.        , 0.73986014, 1.        ]), array([2, 1, 0]))}
 
 ## Checking the Model
 Output['Y'] = pd.DataFrame(YTrain)

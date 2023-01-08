@@ -15,6 +15,9 @@ pd.options.display.float_format = '{:.2f}'.format
 import warnings
 import logging as logger
 import re
+from sklearn.model_selection import train_test_split
+import sklearn.metrics as metrics
+
 #from sklearn.linear_model import LogisticRegression
 #import lifelines
 #from lifelines.utils import k_fold_cross_validation
@@ -82,6 +85,47 @@ class Model():
 
         return Flag,wrongColNames
     
+    """    
+    get_conf_from_pkl
+        Args:
+        Returns: Model metrics estimation 
+        Example: 
+        {'Accuracy': 0.9963095238095238, 'F1': 0.9963404556722937, 
+         'Precision': 0.9957527135441245, 
+         'Recall': 0.9969288920387432, 
+         'RocCurve': (array([0.        , 0.00431965, 1.        ]), array([0.        , 0.99692889, 1.        ]), array([2, 1, 0]))}
+
+    """
+    def get_modelMetricsEstimation_from_pkl(self,path):
+        Data = self.Data
+        conf = self.conf
+        logger = self.logger
+
+        logger.debug('get modelMetricsEstimation from pkl from {path} '.format(path = path))
+        
+        ## Read the pickl e-------------------------------------------------------
+        f = open(path, 'rb')
+        obj = pickle.load(f)
+        f.close()   
+
+        ### Load The pickle ------------------------------------------------------- 
+        [factorVariables,
+         numericVariables,
+         YMCFactorDictionaryList,
+         totalYMeanTarget,
+         totalYMedianTarget,
+         YMCDictionaryNumericList,
+         GBMModel,
+         maxY,
+         minY,
+         logisticRegressionModel,
+         predictionsDictionary,
+         CreateModelDate,
+         NameColumnsOfDataInModel,
+         conf,
+         modelMetricsEstimation] = obj
+
+        return modelMetricsEstimation
     ## ------------------------------------------------------------------------------
     ## ------------------- pre_predict_validation function --------------------------
     ## ------------------------------------------------------------------------------
@@ -120,9 +164,9 @@ class Model():
         if (conf['ColumnSelectionType'] != None and conf['Keep'] == None):
             logger.info('ColumnSelectionType not found in conf using default for \"Keep\" -> []')
             conf['Keep'] = []
-        if (conf['ColumnSelectionType'] != None and conf['Drop'] == None):
-            logger.info('ColumnSelectionType not found in conf using default for \"Drop\" -> []')
-            conf['Drop'] = []
+        if (not 'ValidationDataPercent' in conf or conf['ValidationDataPercent']== None):
+            logger.info('ValidationDataPercent not found in conf using default -> 0.1]')
+            conf['ValidationDataPercent'] = 0.1
 
         ## Save Target columns -----------------------------------------------------
         Target = Data[conf['Target']]
@@ -286,34 +330,24 @@ class Model():
         ### -----------------------------------------------------------------------
         ### Taking the YMC_Suspicious variables -----------------------------------
         YMCVariables = Data.columns[["_MeanNumericYMC" in i or "_MeanFactorYMC" in i or "_MedianFactorYMC" in i for i in Data.columns]]
-        #YMCVariables = (*YMCVariables, *numericVariables)
     
         ### Creating Train Data for model -------------------------------------
-        XTrain = Data.loc[:, YMCVariables].astype(float)
-        #ColumnsMean = XTrain.mean()
-        #XTrain = XTrain.fillna(ColumnsMean)
-        YTrain = Data['Target']
+        XTrain, XValidate, YTrain, YValidate = train_test_split(Data.loc[:, YMCVariables].astype(float), 
+                                                                Data['Target'], 
+                                                                test_size=float(conf['ValidationDataPercent']), 
+                                                                random_state=0)
 
         ### Removing null from the model ---------------------
         XTrain = XTrain.loc[~np.isnan(YTrain), :].reset_index(drop=True)
         YTrain = YTrain.loc[~np.isnan(YTrain)].reset_index(drop=True)
+        XValidate = XValidate.loc[~np.isnan(YValidate)].reset_index(drop=True)
+        YValidate = YValidate.loc[~np.isnan(YValidate)].reset_index(drop=True)
 
         ### Defining the model ------------------------------------------------
-        # objective = 'multiclass'
-        # LGBEstimator = LightGBM.LGBMRegressor(boosting_type='gbdt',
-        #                                       objective='regression')
         LGBEstimator = LightGBM.LGBMClassifier(boosting_type='gbdt',
                                                objective='binary')
 
         ### Defining the Grid -------------------------------------------------
-        # parameters = {'num_leaves':[20,40,60,80,100], 
-        #               #'panalty': ['l1','l2'],
-        #               #'C': [0, 0.3, 0.5, 1],
-        #               'n_estimators': [50,100,150,200,300],
-        #               'min_child_samples':[5,10,15],
-        #               'max_depth':[-1,5,10,20,30,40,45],
-        #               'learning_rate':[0.05,0.1,0.2],
-        #               'reg_alpha':[0,0.01,0.03]}
         parameters = dict(num_leaves = stats.randint(10,500),
                           #panalty = ('l1','l2'),
                           #C = stats.uniform(0, 1),
@@ -337,54 +371,54 @@ class Model():
                                             random_state = 4
                                             )
         GBMModel = GBMGridSearch.fit(X=XTrain, y=YTrain)
-  
+
         ### Fitting the best model --------------------------------------------
         GBMModel = GBMModel.best_estimator_.fit(X=XTrain, y=YTrain)
-        # GBMModel.best_params_ #{'learning_rate': 0.06838596828617904, 'max_depth': 14, 'min_child_samples': 0, 'n_estimators': 195, 'num_leaves': 310, 'reg_alpha': 0.30033842756085605}
-        # results = pd.DataFrame(GBMModel.cv_results_)[['params','mean_test_score','std_test_score']]
-        # results.sort_values(by="mean_test_score",ascending=False,inplace=True)
-        # results.reset_index(drop=False,inplace=True)
-        # results['mean_test_score'].plot(yerr=[results['std_test_score'], results['std_test_score']],subplots=True)
-        
+
         ### Saving the features name ------------------------------------------
         GBMModel.feature_names = list(YMCVariables)
         GBMModel.NameColumnsOfDataInModel =  list(map(lambda x: x.replace('_MeanNumericYMC', '').replace('_MeanFactorYMC', '').replace('_MedianFactorYMC', ''), GBMModel.feature_names))
         NameColumnsOfDataInModel = GBMModel.NameColumnsOfDataInModel 
 
-        ## Logistic Regression ------------------------------------------------
-        logisticRegressionModel = LogisticRegression(max_iter=1000).fit(XTrain.astype(float), YTrain)    
-
-        ##Output the prediction 
-        Data['PredictLogisticRegression'] = logisticRegressionModel.predict_proba(XTrain.astype(float))[:,1]
-
         ## Maximum and Minimum Y ----------------------------------------------
         maxY = np.max(YTrain)
         minY = np.min(YTrain)
 
-        ## Delete variables ---------------------------------------------------
-        del YMCVariables
-        del parameters
-        del LGBEstimator
-        del XTrain
-        del YTrain
-        del GBMGridSearch
-        del KF
+        ### -------------------------------------------------------------------
+        ### ------------ Metrics for estimating the model ---------------------
+        ###--------------------------------------------------------------------
+        ## Validate Predictions -----------------------------------------------
+        XValidate = XValidate.loc[:,GBMModel.feature_names].astype(float)
+        YValidateProba = GBMModel.predict_proba(XValidate)[:,1]
+        YValidateProba = YValidateProba.astype(float)
+        YValidateProba = np.where(YValidateProba >= maxY, maxY, YValidateProba)
+        YValidateProba = np.where(YValidateProba <= minY, minY, YValidateProba)
+        YValidateClass = np.where(YValidateProba >= YValidateProba.mean(),1,0)
+
+        modelMetricsEstimation = {}
+        modelMetricsEstimation['Accuracy'] = metrics.accuracy_score(YValidate, YValidateClass)
+        modelMetricsEstimation['F1'] = metrics.f1_score(YValidate, YValidateClass)
+        modelMetricsEstimation['Precision'] = metrics.precision_score(YValidate, YValidateClass)
+        modelMetricsEstimation['Recall'] = metrics.recall_score(YValidate, YValidateClass)
+        modelMetricsEstimation['RocCurve']  = metrics.roc_curve(YValidate, YValidateClass)
+
+        ## Logistic Regression ------------------------------------------------
+        logisticRegressionModel = LogisticRegression(max_iter=1000).fit(XTrain.loc[:,GBMModel.feature_names].astype(float), YTrain)
+        XTrain['PredictLogisticRegression'] = logisticRegressionModel.predict_proba(XTrain.loc[:,GBMModel.feature_names].astype(float))[:,1]
         
-        ## Predictions ----------------------------------------------------
-        XTrain = Data.loc[:,GBMModel.feature_names].astype(float)
-        ##Data['PredictGBM'] = GBMModel.predict(XTrain)for GBM regressor
-        Data['PredictGBM'] = GBMModel.predict_proba(XTrain)[:,1]
-        Data['PredictGBM'] = Data['PredictGBM'].astype(float)
-        Data['PredictGBM'] = np.where(Data['PredictGBM']>=maxY,maxY,Data['PredictGBM'])
-        Data['PredictGBM'] = np.where(Data['PredictGBM']<=minY,minY,Data['PredictGBM'])
+        ## Train Predictions --------------------------------------------------
+        XTrain['PredictGBM'] = GBMModel.predict_proba(XTrain.loc[:,GBMModel.feature_names].astype(float))[:,1]
+        XTrain['PredictGBM'] = XTrain['PredictGBM'].astype(float)
+        XTrain['PredictGBM'] = np.where(XTrain['PredictGBM']>=maxY,maxY,XTrain['PredictGBM'])
+        XTrain['PredictGBM'] = np.where(XTrain['PredictGBM']<=minY,minY,XTrain['PredictGBM'])
    
-        ## Ranks ----------------------------------------------------
-        predictionsDictionary = Ranks_Dictionary(RJitter(Data['PredictGBM'],0.00001), ranks_num = 10)
+        ## Ranks ---------------------------------------------------------------
+        predictionsDictionary = Ranks_Dictionary(RJitter(XTrain['PredictGBM'],0.00001), ranks_num = 10)
         predictionsDictionary.index = pd.IntervalIndex.from_arrays(predictionsDictionary['lag_value'],
                                                                   predictionsDictionary['value'],
                                                                   closed='left')
         # Convert Each prediction value to rank
-        Data['Rank'] = predictionsDictionary.loc[Data['PredictGBM']]['rank'].reset_index(drop=True)
+        XTrain['Rank'] = predictionsDictionary.loc[XTrain['PredictGBM']]['rank'].reset_index(drop=True)
 
         ### Current Time -------------------------------------------------------
         now = datetime.now() 
@@ -408,15 +442,16 @@ class Model():
                     predictionsDictionary,
                     CreateModelDate,
                     NameColumnsOfDataInModel,
-                    conf], f)
+                    conf,
+                    modelMetricsEstimation], f)
 
         f.close()
 
         ### Output ----------------------------------------------------------------
-        Output = pd.DataFrame(data={'Target': Data['Target'],
-                                    'PredictGBM': Data['PredictGBM'],
-                                    'PredictLogisticRegression': Data['PredictLogisticRegression'],
-                                    'Rank': Data['Rank']})
+        Output = pd.DataFrame(data={'Target': YTrain,
+                                    'PredictGBM': XTrain['PredictGBM'],
+                                    'PredictLogisticRegression': XTrain['PredictLogisticRegression'],
+                                    'Rank': XTrain['Rank']})
 
         return Output
 

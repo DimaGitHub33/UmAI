@@ -100,7 +100,8 @@ class Predict():
          predictionsDictionary,
          CreateModelDate,
          NameColumnsOfDataInModel,
-         conf] = read_pickle(path)
+         conf,
+         modelMetricsEstimation] = read_pickle(path)
 
         return conf
 
@@ -123,19 +124,20 @@ class Predict():
 
         ### Load The Pickle -------------------------------------------------------  
         [factorVariables,
-         numericVariables,
-         YMCFactorDictionaryList,
-         totalYMeanTarget,
-         totalYMedianTarget,
-         YMCDictionaryNumericList,
-         GBMModel,
-         maxY,
-         minY,
-         logisticRegressionModel,
-         predictionsDictionary,
-         CreateModelDate,
-         NameColumnsOfDataInModel,
-         conf] = read_pickle(path = conf['Path'])
+        numericVariables,
+        YMCFactorDictionaryList,
+        totalYMeanTarget,
+        totalYMedianTarget,
+        YMCDictionaryNumericList,
+        GBMModel,
+        maxY,
+        minY,
+        logisticRegressionModel,
+        predictionsDictionary,
+        CreateModelDate,
+        NameColumnsOfDataInModel,
+        conf,
+        modelMetricsEstimation] = read_pickle(path = conf['Path'])
 
         ## convert columns names to string -----------------------------------------
         Data.columns = Data.columns.astype(str)
@@ -212,7 +214,8 @@ class Predict():
          predictionsDictionary,
          CreateModelDate,
          NameColumnsOfDataInModel,
-         conf] = read_pickle(path = conf['Path'])        
+         conf,
+         modelMetricsEstimation] = read_pickle(path = conf['Path'])        
 
 
         ### Raise error if in the predict data there are no columns in the models -
