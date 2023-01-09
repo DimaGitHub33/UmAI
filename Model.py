@@ -69,7 +69,7 @@ class Model():
         ### Check if the columns names are wrong -----------------------------------
         Flag = False
         correctColumnsName = Data.rename(columns = lambda x:re.sub('[^A-Za-z0-9_]+', '', x)).columns
-        wrongColNames = set(correctColumnsName) - set(Data.columns)
+        wrongColNames = list(set(correctColumnsName) - set(Data.columns))
         
         if (len(wrongColNames) > 0):
             #raise Exception("wrong columns name ->" + str(wrongColNames))
@@ -86,15 +86,29 @@ class Model():
         return Flag,wrongColNames
     
     """    
-    get_conf_from_pkl
+    get_modelMetricsEstimation_from_pkl
         Args:
         Returns: Model metrics estimation 
         Example: 
-        {'Accuracy': 0.9963095238095238, 'F1': 0.9963404556722937, 
-         'Precision': 0.9957527135441245, 
-         'Recall': 0.9969288920387432, 
-         'RocCurve': (array([0.        , 0.00431965, 1.        ]), array([0.        , 0.99692889, 1.        ]), array([2, 1, 0]))}
-
+                {'Accuracy': 0.9, 
+                'F1': 0.9014084507042254, 
+                'Precision': 0.9411764705882353, 
+                'Recall': 0.8648648648648649, 
+                'PrecisionRecallCurve': (
+                                            array([0.52857143, 0.53623188, 0.54411765, 0.55223881, 0.56060606,
+                                                   0.13513514, 0.10810811, 0.08108108, 0.05405405, 0.02702703]), 
+                                            array([3.19794303e-12, 8.15585695e-12, 8.64222297e-12, 1.89704868e-11,
+                                                   1.00000000e+00, 1.00000000e+00, 1.00000000e+00, 1.00000000e+00,1.00000000e+00, 1.00000000e+00])
+                                        ), 
+                'RocCurve': (
+                             array([0.        , 0.        , 0.        , 0.03030303, 0.03030303,
+                             0.06060606, 0.06060606, 0.09090909, 0.09090909, 0.12121212,0.12121212]), 
+                             array([0.        , 0.02702703, 0.64864865, 0.64864865, 0.83783784,
+                                    0.83783784, 0.89189189, 0.89189189, 0.91891892, 0.91891892]), 
+                             array([2.00000000e+00, 1.00000000e+00, 9.99975997e-01, 9.99967249e-01,
+                                    9.91333851e-01, 8.51420026e-01, 3.93920028e-01, 2.61575334e-01])
+                            )
+                }
     """
     def get_modelMetricsEstimation_from_pkl(self,path):
         Data = self.Data
@@ -400,7 +414,8 @@ class Model():
         modelMetricsEstimation['F1'] = metrics.f1_score(YValidate, YValidateClass)
         modelMetricsEstimation['Precision'] = metrics.precision_score(YValidate, YValidateClass)
         modelMetricsEstimation['Recall'] = metrics.recall_score(YValidate, YValidateClass)
-        modelMetricsEstimation['RocCurve']  = metrics.roc_curve(YValidate, YValidateClass)
+        modelMetricsEstimation['PrecisionRecallCurve']  = metrics.precision_recall_curve(YValidate, YValidateProba)
+        modelMetricsEstimation['RocCurve']  = metrics.roc_curve(YValidate, YValidateProba)
 
         ## Logistic Regression ------------------------------------------------
         logisticRegressionModel = LogisticRegression(max_iter=1000).fit(XTrain.loc[:,GBMModel.feature_names].astype(float), YTrain)

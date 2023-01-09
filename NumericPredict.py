@@ -98,7 +98,8 @@ class NumericPredict():
          QrModel, UpperBorder, UpperValue, Calibration,
          CreateModelDate,
          NameColumnsOfDataInModel,
-         conf]= read_pickle(path)
+         conf,
+         Mappe]= read_pickle(path)
 
         return conf
 
@@ -132,7 +133,8 @@ class NumericPredict():
         QrModel, UpperBorder, UpperValue, Calibration,
         CreateModelDate,
         NameColumnsOfDataInModel,
-        conf] = read_pickle(path = conf['Path'])
+        conf,
+        Mappe] = read_pickle(path = conf['Path'])
 
         ## convert columns names to string -----------------------------------------
         Data.columns = Data.columns.astype(str)
@@ -207,7 +209,8 @@ class NumericPredict():
         QrModel, UpperBorder, UpperValue, Calibration,
         CreateModelDate,
         NameColumnsOfDataInModel,
-        conf] = read_pickle(path = conf['Path'])
+        conf,
+        Mappe] = read_pickle(path = conf['Path'])
 
         ### Inserting the YMC Values from the dictionaries to the DataPanel -------
         for variableName in YMCFactorDictionaryList:

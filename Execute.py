@@ -381,7 +381,8 @@ from sklearn.datasets import make_classification
 from sklearn.ensemble import IsolationForest
 
 ## 1) Load Data -------------------------------------------------------------------------------------     
-InputData = pd.read_csv("/Users/dhhazanov/UmAI/Data/Train_Inpatientdata-1542865627584.csv")
+#InputData = pd.read_csv("/Users/dhhazanov/UmAI/Data/Train_Inpatientdata-1542865627584.csv")
+InputData = pd.read_csv("/Users/dhhazanov/UmAI/Data/insurance_claims.csv")
 InputData = pd.DataFrame(InputData)
 InputData = InputData.drop(['Unnamed: 0','Column1'], axis = 1,errors = 'ignore') 
 #dataHealth = dataHealth.loc[:,['fraud_reported','auto_model','auto_make','police_report_available','property_damage','incident_location','incident_city','incident_state','authorities_contacted','policy_state','policy_csl','insured_sex','insured_education_level','insured_occupation','insured_hobbies','insured_relationship','incident_type','collision_type','incident_severity']]
@@ -389,7 +390,8 @@ InputData = InputData.drop(['Unnamed: 0','Column1'], axis = 1,errors = 'ignore')
 
 
 ## Create the X data and the Y data ---------------------------------
-makeClassificationY = np.where(InputData['Provider']=='PRV55912', 1, 0)
+#makeClassificationY = np.where(InputData['Provider']=='PRV55912', 1, 0)
+makeClassificationY = np.where(InputData['fraud_reported']=='Y', 1, 0)
 makeClassificationX = InputData
 
 XTrain, XTest, YTrain, YTest = train_test_split(InputData, makeClassificationY, test_size=0.3, random_state=0)
@@ -471,8 +473,8 @@ Output.groupby('Target')['PredictGBM'].apply(np.mean).reset_index()##Checking th
 
 Output.groupby('Y')['PredictGBM'].apply(np.mean).reset_index()##Checking the model (Train Test is the same)
 #    Y  PredictGBM
-# 0  0        0.49
-# 1  1        0.56
+# 0  0        0.58
+# 1  1        0.60
 
 Output.groupby('Rank')['Y'].apply(np.mean).reset_index()##Checking the model (Train Test is the same)
 #    Rank    Y
@@ -513,20 +515,20 @@ Predictions['ActualY'] = NewData['Y']
 
 Predictions.groupby('ActualY')['PredictGBM'].apply(np.mean).reset_index()
 #    ActualY  PredictGBM
-# 0        0        0.50
-# 1        1        0.76
+# 0        0        0.51
+# 1        1        0.61
 Predictions.groupby('Rank')['ActualY'].apply(np.mean).reset_index()
 #    Rank  ActualY
-# 0     1     0.00
-# 1     2     0.00
-# 2     3     0.20
-# 3     4     0.41
-# 4     5     0.25
-# 5     6     0.06
-# 6     7     0.11
-# 7     8     0.29
-# 8     9     0.27
-# 9    10     1.00
+# 0     1     0.14
+# 1     2     0.12
+# 2     3     0.23
+# 3     4     0.29
+# 4     5     0.34
+# 5     6     0.10
+# 6     7     0.31
+# 7     8     0.43
+# 8     9     0.34
+# 9    10     0.24
 Predictions.groupby('Rank')['PredictGBM'].apply(np.mean).reset_index()
 #    Rank  PredictGBM
 # 0     1        0.00
@@ -542,13 +544,13 @@ Predictions.groupby('Rank')['PredictGBM'].apply(np.mean).reset_index()
 
 Predictions.groupby('Rank')['ActualY'].apply(np.mean).reset_index()
 #    Rank  ActualY
-# 0     1     0.00
-# 1     2     0.00
-# 2     3     0.20
-# 3     4     0.41
-# 4     5     0.25
-# 5     6     0.06
-# 6     7     0.11
-# 7     8     0.29
-# 8     9     0.27
-# 9    10     1.00
+# 0     1     0.14
+# 1     2     0.12
+# 2     3     0.23
+# 3     4     0.29
+# 4     5     0.34
+# 5     6     0.10
+# 6     7     0.31
+# 7     8     0.43
+# 8     9     0.34
+# 9    10     0.24

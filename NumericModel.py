@@ -15,6 +15,8 @@ pd.options.display.float_format = '{:.2f}'.format
 import warnings
 import logging as logger
 import statsmodels.formula.api as smf
+from sklearn.model_selection import train_test_split
+import sklearn.metrics as metrics
 
 #from sklearn.linear_model import LogisticRegression
 #import lifelines
@@ -42,6 +44,56 @@ class NumericModel():
         self.logger = logger
 
         self.logger.debug('Model was created')
+
+    """    
+    get_modelMetricsEstimation_from_pkl
+        Args:
+        Returns: Model metrics estimation 
+        Example: 
+                      Acuumalative Number Of People  # In Each Group  Percent  # Total
+                <10                            1632          1632.00    58.29     2800
+                <20                            2077           445.00    15.89     2800
+                <30                            2295           218.00     7.79     2800
+                <40                            2415           120.00     4.29     2800
+                <50                            2499            84.00     3.00     2800
+                <60                            2557            58.00     2.07     2800
+                <70                            2595            38.00     1.36     2800
+                <80                            2615            20.00     0.71     2800
+                <90                            2642            27.00     0.96     2800
+                <100                           2660            18.00     0.64     2800
+                <200                           2736            76.00     2.71     2800
+                <300                           2756            20.00     0.71     2800
+                <400                           2770            14.00     0.50     2800
+    """
+    def get_modelMetricsEstimation_from_pkl(self,path):
+        Data = self.Data
+        conf = self.conf
+        logger = self.logger
+
+        logger.debug('get modelMetricsEstimation from pkl from {path} '.format(path = path))
+        
+        ## Read the pickl e-------------------------------------------------------
+        f = open(path, 'rb')
+        obj = pickle.load(f)
+        f.close()   
+
+        ### Load The pickle ------------------------------------------------------- 
+        ### Load The pickle ------------------------------------------------------- 
+        [factorVariables,
+         numericVariables,
+         YMCFactorDictionaryList,
+         totalYMeanTarget,
+         totalYMedianTarget,
+         YMCDictionaryNumericList,
+         GBMModel, maxY, minY,
+         predictionsDictionary,
+         QrModel, UpperBorder, UpperValue, Calibration,
+         CreateModelDate,
+         NameColumnsOfDataInModel,
+         conf,
+         Mappe] = obj
+
+        return Mappe
 
     def fit(self):
         Data = self.Data
@@ -81,6 +133,9 @@ class NumericModel():
         if (conf['ColumnSelectionType'] != None and conf['Drop'] == None):
             logger.info('ColumnSelectionType not found in conf using default for \"Drop\" -> []')
             conf['Drop'] = []
+        if (not 'ValidationDataPercent' in conf or conf['ValidationDataPercent']== None):
+            logger.info('ValidationDataPercent not found in conf using default -> 0.1]')
+            conf['ValidationDataPercent'] = 0.1
 
         ## Save Target columns -----------------------------------------------------
         Target = Data[conf['Target']]
@@ -245,32 +300,24 @@ class NumericModel():
         ### -----------------------------------------------------------------------
         ### Taking the variables -----------------------------------
         YMCVariables = Data.columns[["_MeanNumericYMC" in i or "_MeanFactorYMC" in i or "_MedianFactorYMC" in i for i in Data.columns]]
-        #YMCVariables = (*YMCVariables, *numericVariables)
-    
+        
         ### Creating Train Data for model -------------------------------------
-        XTrain = Data.loc[:, YMCVariables].astype(float)
-        YTrain = Data['Target']
+        XTrain, XValidate, YTrain, YValidate = train_test_split(Data.loc[:, YMCVariables].astype(float), 
+                                                                Data['Target'], 
+                                                                test_size=float(conf['ValidationDataPercent']), 
+                                                                random_state=0)
 
         ### Removing null from the model ---------------------
         XTrain = XTrain.loc[~np.isnan(YTrain), :].reset_index(drop=True)
         YTrain = YTrain.loc[~np.isnan(YTrain)].reset_index(drop=True)
+        XValidate = XValidate.loc[~np.isnan(YValidate)].reset_index(drop=True)
+        YValidate = YValidate.loc[~np.isnan(YValidate)].reset_index(drop=True)
 
         ### Defining the model ------------------------------------------------
-        # objective = 'multiclass'
         LGBEstimator = LightGBM.LGBMRegressor(boosting_type='gbdt',
                                               objective='regression')
-        # LGBEstimator = LightGBM.LGBMClassifier(boosting_type='gbdt',
-        #                                        objective='binary')
 
         ### Defining the Grid -------------------------------------------------
-        # parameters = {'num_leaves':[20,40,60,80,100], 
-        #               #'panalty': ['l1','l2'],
-        #               #'C': [0, 0.3, 0.5, 1],
-        #               'n_estimators': [50,100,150,200,300],
-        #               'min_child_samples':[5,10,15],
-        #               'max_depth':[-1,5,10,20,30,40,45],
-        #               'learning_rate':[0.05,0.1,0.2],
-        #               'reg_alpha':[0,0.01,0.03]}
         parameters = dict(num_leaves = stats.randint(10,500),
                           #panalty = ('l1','l2'),
                           #C = stats.uniform(0, 1),
@@ -297,11 +344,6 @@ class NumericModel():
   
         ### Fitting the best model --------------------------------------------
         GBMModel = GBMModel.best_estimator_.fit(X=XTrain, y=YTrain)
-        # GBMModel.best_params_ #{'learning_rate': 0.06838596828617904, 'max_depth': 14, 'min_child_samples': 0, 'n_estimators': 195, 'num_leaves': 310, 'reg_alpha': 0.30033842756085605}
-        # results = pd.DataFrame(GBMModel.cv_results_)[['params','mean_test_score','std_test_score']]
-        # results.sort_values(by="mean_test_score",ascending=False,inplace=True)
-        # results.reset_index(drop=False,inplace=True)
-        # results['mean_test_score'].plot(yerr=[results['std_test_score'], results['std_test_score']],subplots=True)
         
         ### Saving the features name ------------------------------------------
         GBMModel.feature_names = list(YMCVariables)
@@ -312,30 +354,54 @@ class NumericModel():
         maxY = np.max(YTrain)
         minY = np.min(YTrain)
 
-        ## Delete variables ---------------------------------------------------
-        del YMCVariables
-        del parameters
-        del LGBEstimator
-        del XTrain
-        del YTrain
-        del GBMGridSearch
-        del KF
-        
+        ### -------------------------------------------------------------------
+        ### ------------ Metrics for estimating the model ---------------------
+        ###--------------------------------------------------------------------
+        ## Validate Predictions -----------------------------------------------
+        YValidateProba = GBMModel.predict(XValidate.loc[:,GBMModel.feature_names].astype(float))
+        YValidateProba = YValidateProba.astype(float)
+        YValidateProba = np.where(YValidateProba >= maxY, maxY, YValidateProba)
+        YValidateProba = np.where(YValidateProba <= minY, minY, YValidateProba)
+
+        ## Mappe --------------------------------------------------------------
+        MappeValues = 100*(np.abs(YValidate-YValidateProba)+1)/(np.abs(YValidateProba)+1)
+        MappeValues = pd.DataFrame(np.where(np.abs(YValidate-YValidateProba)<=10,0,MappeValues))
+        Mappe = pd.DataFrame(data={'<10':[(MappeValues <= 10).value_counts()[1]],
+                                '<20':[(MappeValues <= 20).value_counts()[1]],
+                                '<30':[(MappeValues <= 30).value_counts()[1]],
+                                '<40':[(MappeValues <= 40).value_counts()[1]],
+                                '<50':[(MappeValues <= 50).value_counts()[1]],
+                                '<60':[(MappeValues <= 60).value_counts()[1]],
+                                '<70':[(MappeValues <= 70).value_counts()[1]],
+                                '<80':[(MappeValues <= 80).value_counts()[1]],
+                                '<90':[(MappeValues <= 90).value_counts()[1]],
+                                '<100':[(MappeValues <= 100).value_counts()[1]],
+                                '<200':[(MappeValues <= 200).value_counts()[1]],
+                                '<300':[(MappeValues <= 300).value_counts()[1]],
+                                '<400':[(MappeValues <= 400).value_counts()[1]]
+                                })
+        Mappe = Mappe.T
+        Mappe.columns=['Acuumalative Number Of People']
+        Mappe['# In Each Group'] = Mappe['Acuumalative Number Of People'] - Mappe['Acuumalative Number Of People'].shift(1)
+        Mappe['# In Each Group'] = np.where(Mappe['# In Each Group'].isna(),Mappe['Acuumalative Number Of People'],Mappe['# In Each Group'])
+        Mappe['Percent'] = 100.0*Mappe['# In Each Group']/len(MappeValues)
+        Mappe['# Total'] = len(MappeValues)
+
+
+                                   
         ## Predictions ----------------------------------------------------
-        XTrain = Data.loc[:,GBMModel.feature_names].astype(float)
-        Data['PredictGBM'] = GBMModel.predict(XTrain)##for GBM regressor
-        ##Data['PredictGBM'] = GBMModel.predict_proba(XTrain)[:,1]
-        Data['PredictGBM'] = Data['PredictGBM'].astype(float)
-        Data['PredictGBM'] = np.where(Data['PredictGBM']>=maxY,maxY,Data['PredictGBM'])
-        Data['PredictGBM'] = np.where(Data['PredictGBM']<=minY,minY,Data['PredictGBM'])
+        XTrain['PredictGBM'] = GBMModel.predict(XTrain.loc[:,GBMModel.feature_names].astype(float))##for GBM regressor
+        XTrain['PredictGBM'] = XTrain['PredictGBM'].astype(float)
+        XTrain['PredictGBM'] = np.where(XTrain['PredictGBM'] >= maxY,maxY,XTrain['PredictGBM'])
+        XTrain['PredictGBM'] = np.where(XTrain['PredictGBM'] <= minY,minY,XTrain['PredictGBM'])
    
         ## Ranks ----------------------------------------------------
-        predictionsDictionary = Ranks_Dictionary(RJitter(Data['PredictGBM'],0.00001), ranks_num = 10)
+        predictionsDictionary = Ranks_Dictionary(RJitter(XTrain['PredictGBM'],0.00001), ranks_num = 10)
         predictionsDictionary.index = pd.IntervalIndex.from_arrays(predictionsDictionary['lag_value'],
                                                                   predictionsDictionary['value'],
                                                                   closed='left')
         # Convert Each prediction value to rank
-        Data['Rank'] = predictionsDictionary.loc[Data['PredictGBM']]['rank'].reset_index(drop=True)
+        XTrain['Rank'] = predictionsDictionary.loc[XTrain['PredictGBM']]['rank'].reset_index(drop=True)
 
 
         ### -----------------------------------------------------------------------
@@ -343,14 +409,6 @@ class NumericModel():
         ### -----------------------------------------------------------------------
         ### Taking the variables -----------------------------------
         YMCVariables = Data.columns[["_MeanNumericYMC" in i or "_MeanFactorYMC" in i or "_MedianFactorYMC" in i for i in Data.columns]]
-
-        ### Creating Train Data for model -------------------------------------
-        XTrain = Data.loc[:, YMCVariables].astype(float)
-        YTrain = Data['Target']
-
-        ### Removing null from the model ---------------------
-        XTrain = XTrain.loc[~np.isnan(YTrain), :].reset_index(drop=True)
-        YTrain = YTrain.loc[~np.isnan(YTrain)].reset_index(drop=True)
 
         ### Defining the model ------------------------------------------------
         LGBEstimator = LightGBM.LGBMRegressor(boosting_type='gbdt',
@@ -381,34 +439,34 @@ class NumericModel():
                                             refit = True,
                                             random_state = 4
                                             )
-        QrModel = GBMGridSearch.fit(X = XTrain, y = YTrain)
+        QrModel = GBMGridSearch.fit(X = XTrain.loc[:,YMCVariables].astype(float), y = YTrain)
   
         ### Fitting the best model --------------------------------------------
-        QrModel = QrModel.best_estimator_.fit(X = XTrain, y = YTrain)
+        QrModel = QrModel.best_estimator_.fit(X = XTrain.loc[:,YMCVariables].astype(float), y = YTrain)
 
         ## Prediction for calibration------------------------------------------
-        Data['PredictQuantile'] = QrModel.predict(XTrain)
-        #Data['PredictQuantile'] = np.maximum(1, Data['PredictQuantile'])
+        XTrain['PredictQuantile'] = QrModel.predict(XTrain.loc[:,YMCVariables].astype(float))
+        #XTrain['PredictQuantile'] = np.maximum(1, XTrain['PredictQuantile'])
         
         ##LTV Upper Cut Point
-        UpperBorder = np.quantile(Data['PredictQuantile'],0.999)
-        UpperValue = np.mean(Data.loc[Data['PredictQuantile'] >= UpperBorder,:]['PredictQuantile'])
-        Data['PredictQuantile'] = np.where(Data['PredictQuantile'] >= UpperBorder, UpperValue, Data['PredictQuantile'])
+        UpperBorder = np.quantile(XTrain['PredictQuantile'],0.999)
+        UpperValue = np.mean(XTrain.loc[XTrain['PredictQuantile'] >= UpperBorder,:]['PredictQuantile'])
+        XTrain['PredictQuantile'] = np.where(XTrain['PredictQuantile'] >= UpperBorder, UpperValue, XTrain['PredictQuantile'])
                 
         # Calibration ----------------------------------------------------------
-        pred = Data['PredictQuantile'][Data['PredictQuantile']<np.quantile(Data['PredictQuantile'],0.9)]
-        predTop = Data['PredictQuantile'][Data['PredictQuantile']>=np.quantile(Data['PredictQuantile'],0.9)]
+        pred = XTrain['PredictQuantile'][XTrain['PredictQuantile'] < np.quantile(XTrain['PredictQuantile'],0.9)]
+        predTop = XTrain['PredictQuantile'][XTrain['PredictQuantile'] >= np.quantile(XTrain['PredictQuantile'],0.9)]
         
         if (len(pred)==0 or len(predTop)==0):
-            Data['PredictQuantile'] = Data['PredictQuantile']+np.random.uniform(0, 0.001, len(Data['PredictQuantile']))
-            Data['PredictQuantile'] = Data['PredictQuantile']+np.random.uniform(0, 0.00001, len(Data['PredictQuantile']))
-            Data['PredictQuantile'] = Data['PredictQuantile']+np.random.uniform(0, 0.000001, len(Data['PredictQuantile']))
-            Data['PredictQuantile'] = Data['PredictQuantile']+np.random.uniform(0, 0.0000001, len(Data['PredictQuantile']))
-            Data['PredictQuantile'] = Data['PredictQuantile']+np.random.uniform(0, 0.0000001, len(Data['PredictQuantile']))
-            Data['PredictQuantile'] = Data['PredictQuantile']+np.random.uniform(0, 0.0000001, len(Data['PredictQuantile']))
+            XTrain['PredictQuantile'] = XTrain['PredictQuantile']+np.random.uniform(0, 0.001, len(XTrain['PredictQuantile']))
+            XTrain['PredictQuantile'] = XTrain['PredictQuantile']+np.random.uniform(0, 0.00001, len(XTrain['PredictQuantile']))
+            XTrain['PredictQuantile'] = XTrain['PredictQuantile']+np.random.uniform(0, 0.000001, len(XTrain['PredictQuantile']))
+            XTrain['PredictQuantile'] = XTrain['PredictQuantile']+np.random.uniform(0, 0.0000001, len(XTrain['PredictQuantile']))
+            XTrain['PredictQuantile'] = XTrain['PredictQuantile']+np.random.uniform(0, 0.0000001, len(XTrain['PredictQuantile']))
+            XTrain['PredictQuantile'] = XTrain['PredictQuantile']+np.random.uniform(0, 0.0000001, len(XTrain['PredictQuantile']))
 
-            pred = Data['PredictQuantile'][Data['PredictQuantile']<np.quantile(Data['PredictQuantile'],0.9)]
-            predTop = Data['PredictQuantile'][Data['PredictQuantile']>=np.quantile(Data['PredictQuantile'],0.9)]        
+            pred = XTrain['PredictQuantile'][XTrain['PredictQuantile']<np.quantile(XTrain['PredictQuantile'],0.9)]
+            predTop = XTrain['PredictQuantile'][XTrain['PredictQuantile']>=np.quantile(XTrain['PredictQuantile'],0.9)]        
     
         Calibration1 = Ranks_Dictionary(pred,max(10,round(len(pred)/700)))
         Calibration2 = Ranks_Dictionary(predTop,max(5,round(len(predTop)/400)))
@@ -421,15 +479,16 @@ class NumericModel():
         
         # Creating interval index for fast location 
         Calibration.index = pd.IntervalIndex.from_arrays(Calibration['lag_value'],
-                                                        Calibration['value'],
-                                                        closed='left')
+                                                         Calibration['value'],
+                                                         closed='left')
         
         # Convert Each value in variable to rank
-        Data['PredictedRank'] = Calibration.loc[Data['PredictQuantile']]['rank'].reset_index(drop=True)
+        XTrain['PredictedRank'] = Calibration.loc[XTrain['PredictQuantile']]['rank'].reset_index(drop=True)
         
         
-        a = Data.groupby('PredictedRank').agg(mean = ('PredictQuantile', 'mean'),length = ('PredictQuantile', 'count')).reset_index()
-        b = Data.groupby('PredictedRank').agg(mean = ('Target', 'mean'),length = ('PredictQuantile', 'count')).reset_index()
+        a = XTrain.groupby('PredictedRank').agg(mean = ('PredictQuantile', 'mean'),length = ('PredictQuantile', 'count')).reset_index()
+        XTrain['Target'] = YTrain
+        b = XTrain.groupby('PredictedRank').agg(mean = ('Target', 'mean'),length = ('PredictQuantile', 'count')).reset_index()
         a.columns = ["Ranks","PredictedMean","PredictedLength"]
         b.columns = ["Ranks","YMean","YLength"]
 
@@ -451,8 +510,8 @@ class NumericModel():
         Calibration.index = pd.IntervalIndex.from_arrays(Calibration['lag_value'],
                                                 Calibration['value'],
                                                 closed='left')
-        Data['Calibration'] = Calibration.loc[Data['PredictQuantile']]['Calibration'].reset_index(drop=True)
-        Data['PredictCalibrated'] = Data['Calibration'] * Data['PredictQuantile']
+        XTrain['Calibration'] = Calibration.loc[XTrain['PredictQuantile']]['Calibration'].reset_index(drop=True)
+        XTrain['PredictCalibrated'] = XTrain['Calibration'] * XTrain['PredictQuantile']
 
 
         ### Current Time -------------------------------------------------------
@@ -475,16 +534,17 @@ class NumericModel():
                     QrModel, UpperBorder, UpperValue, Calibration,
                     CreateModelDate,
                     NameColumnsOfDataInModel,
-                    conf], f)
+                    conf,
+                    Mappe], f)
 
         f.close()
 
         ### Output ----------------------------------------------------------------
-        Output = pd.DataFrame(data={'Target': Data['Target'],
-                                    'PredictGBM': Data['PredictGBM'],
-                                    'PredictQuantile': Data['PredictQuantile'],
-                                    'PredictCalibrated': Data['PredictCalibrated'],
-                                    'Rank': Data['Rank']})
+        Output = pd.DataFrame(data={'Target': XTrain['Target'],
+                                    'PredictGBM': XTrain['PredictGBM'],
+                                    'PredictQuantile': XTrain['PredictQuantile'],
+                                    'PredictCalibrated': XTrain['PredictCalibrated'],
+                                    'Rank': XTrain['Rank']})
 
         return Output
 
